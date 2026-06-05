@@ -543,39 +543,32 @@ button {
   padding: 24px;
 }
 
-.score-section {
+.result-status {
   display: grid;
-  grid-template-columns: 172px 1fr;
-  gap: 28px;
+  grid-template-columns: 132px 1fr;
+  gap: 22px;
   align-items: center;
 }
 
-.score-ring {
+.score-tile {
   display: grid;
+  gap: 6px;
   place-items: center;
-  width: 172px;
-  height: 172px;
-  border-radius: 50%;
-  background: conic-gradient(var(--score-color) var(--score-deg), #dfe8f2 0deg);
-}
-
-.score-inner {
-  display: grid;
-  place-items: center;
-  width: 130px;
-  height: 130px;
+  min-height: 118px;
+  color: var(--score-color);
   background: #ffffff;
-  border-radius: 50%;
   border: 1px solid var(--line);
+  border-top: 5px solid var(--score-color);
+  border-radius: var(--radius);
 }
 
-.score-number {
+.score-tile strong {
   font-size: 2.8rem;
   font-weight: 820;
   line-height: 1;
 }
 
-.score-label {
+.score-tile span {
   color: var(--muted);
   font-size: 0.85rem;
 }
@@ -588,7 +581,7 @@ button {
 
 .summary-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 24px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -625,6 +618,10 @@ button {
 
 .summary-item.is-warning strong {
   color: var(--warn);
+}
+
+.summary-item.is-info strong {
+  color: var(--info);
 }
 
 .summary-item.is-passed strong {
@@ -830,28 +827,17 @@ button {
     justify-content: flex-start;
   }
 
-  .start-layout,
   .utility-grid,
   .results-grid,
   .report-grid,
   .issue-sections,
-  .score-section {
+  .result-status {
     grid-template-columns: 1fr;
   }
 
   .status-panel {
     min-height: 300px;
     padding: 26px;
-  }
-
-  .score-ring {
-    width: 150px;
-    height: 150px;
-  }
-
-  .score-inner {
-    width: 114px;
-    height: 114px;
   }
 }
 

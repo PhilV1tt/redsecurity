@@ -1,5 +1,5 @@
 const scanCategories = ["Network", "System", "Accounts", "Protection", "Updates"];
-const severityOrder = { critical: 0, warning: 1, passed: 2, info: 3, skipped: 4 };
+const severityOrder = { critical: 0, warning: 1, info: 2, passed: 3, skipped: 4 };
 const statusColors = {
   critical: "#c83333",
   warning: "#b96a00",
@@ -204,18 +204,13 @@ function renderProgressStep(category, index) {
 function renderResults() {
   const data = state.results;
   const scoreColor = colorForScore(data.score);
-  const degree = Math.max(0, Math.min(360, Math.round(data.score * 3.6)));
   return `
     <section class="results-grid" aria-labelledby="results-title">
       <div class="result-panel">
-        <div class="score-section">
-          <div class="score-ring" style="--score-color:${scoreColor}; --score-deg:${degree}deg">
-            <div class="score-inner">
-              <div>
-                <div class="score-number">${data.score}</div>
-                <div class="score-label">out of 100</div>
-              </div>
-            </div>
+        <div class="result-status" style="--score-color:${scoreColor}">
+          <div class="score-tile">
+            <strong>${data.score}</strong>
+            <span>Risk score</span>
           </div>
           <div class="results-heading">
             <h1 id="results-title">${statusText(data)}</h1>
@@ -226,7 +221,8 @@ function renderResults() {
         <div class="summary-strip" aria-label="Summary counts">
           <div class="summary-item is-critical"><strong>${data.summary.critical}</strong><span>Critical</span></div>
           <div class="summary-item is-warning"><strong>${data.summary.warning}</strong><span>Warning</span></div>
-          <div class="summary-item is-passed"><strong>${data.summary.passed}</strong><span>Passed</span></div>
+          <div class="summary-item is-info"><strong>${data.summary.info}</strong><span>Info</span></div>
+          <div class="summary-item is-passed"><strong>${data.summary.passed}</strong><span>OK</span></div>
         </div>
       </div>
       <aside class="side-panel" aria-label="Category summary">
@@ -274,14 +270,16 @@ function renderIssues() {
   return `
     <section aria-labelledby="issues-title">
       <div class="issues-heading">
-        <h1 id="issues-title">Findings sorted by severity</h1>
-        <p>Each item explains what was found, why it matters and the practical fix.</p>
+        <h1 id="issues-title">Issues by severity</h1>
+        <p>Critical and Warning items appear first, then Info and OK checks.</p>
       </div>
       <div class="issue-toolbar" aria-label="Issue filters">
         ${renderFilter("all", "All")}
         ${renderFilter("critical", "Critical")}
         ${renderFilter("warning", "Warning")}
-        ${renderFilter("passed", "Passed")}
+        ${renderFilter("info", "Info")}
+        ${renderFilter("passed", "OK")}
+        ${renderFilter("skipped", "Skipped")}
       </div>
       <div class="issue-list">
         ${filtered.length ? filtered.map(renderIssueCard).join("") : renderEmptyIssues()}
@@ -467,7 +465,7 @@ function normalizeScan(data) {
     score,
     risk_level: data.risk_level || riskFromScore(score),
     summary,
-    findings
+    findings: sortedFindings(findings)
   };
 }
 
@@ -545,7 +543,7 @@ function severityLabel(severity) {
   return {
     critical: "Critical",
     warning: "Warning",
-    passed: "Passed",
+    passed: "OK",
     info: "Info",
     skipped: "Skipped"
   }[severity] || "Info";
