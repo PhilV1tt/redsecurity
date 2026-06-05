@@ -632,6 +632,59 @@ button {
   color: var(--skip);
 }
 
+.score-explain {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.score-explain h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.score-explain p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.weight-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weight-pill {
+  min-height: 62px;
+  padding: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.weight-pill strong,
+.weight-pill span {
+  display: block;
+}
+
+.weight-pill span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.score-steps {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .category-bars {
   display: grid;
   gap: 13px;

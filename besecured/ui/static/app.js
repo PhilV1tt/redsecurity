@@ -754,10 +754,8 @@ function renderExportHtml(data) {
       <h2>${escapeHtml(finding.name)}</h2>
       <p><strong>Severity:</strong> ${escapeHtml(statusLabel(finding.status))}</p>
       <p><strong>Category:</strong> ${escapeHtml(finding.category)}</p>
-      <p><strong>OS support:</strong> ${escapeHtml(osSupportLabel(finding.supported_os))}</p>
-      <p><strong>Admin:</strong> ${finding.requires_admin ? "Required" : "Not required"}</p>
-      <p><strong>What we found:</strong> ${escapeHtml(finding.what_we_found)}</p>
-      <p><strong>Why it matters:</strong> ${escapeHtml(finding.why_it_matters)}</p>
+      <p><strong>What we found:</strong> ${escapeHtml(finding.detail)}</p>
+      <p><strong>Why it matters:</strong> ${escapeHtml(finding.explanation)}</p>
       <p><strong>How to fix it:</strong></p>
       <ul>${finding.fix_steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ul>
     </section>

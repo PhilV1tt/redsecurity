@@ -8,7 +8,7 @@ from besecured.scoring import category_scores, count_statuses, grade_for_score, 
 
 
 class ReportTests(unittest.TestCase):
-    def test_html_is_self_contained_and_contains_simple_recommendations(self):
+    def test_html_is_self_contained_and_contains_rich_findings(self):
         findings = [
             Finding("Firewall", "Firewall", "CRIT", "Disabled", "Enable the firewall."),
             Finding("Open Ports", "RDP", "OK", "Closed", "Keep it closed."),
@@ -31,6 +31,8 @@ class ReportTests(unittest.TestCase):
         self.assertIn("What we found", html)
         self.assertIn("Why it matters", html)
         self.assertIn("How to fix it", html)
+        self.assertIn("OS support", html)
+        self.assertIn("Admin", html)
         self.assertIn("A disabled firewall can expose local services to other machines.", html)
         self.assertIn("Enable the firewall.", html)
         self.assertIn("does not upload scan data", html)
@@ -44,15 +46,24 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("https://", html)
         self.assertNotIn("http://", html)
 
-    def test_finding_dict_contains_explanation_and_action(self):
+    def test_finding_dict_contains_required_fields(self):
         finding = Finding("User Accounts", "Guest Account", "CRIT", "Guest account is enabled.")
         data = finding.to_dict()
 
+        self.assertEqual(data["category"], "User Accounts")
+        self.assertEqual(data["name"], "Guest Account")
+        self.assertEqual(data["status"], "CRIT")
+        self.assertEqual(data["detail"], "Guest account is enabled.")
         self.assertEqual(data["explanation"], "Guest access can let someone use the machine without a named account.")
         self.assertEqual(data["recommended_action"], "Disable guest account.")
         self.assertEqual(data["fix_steps"], ["Disable guest account."])
-        self.assertNotIn("remediation", data)
+        self.assertNotIn("what_we_found", data)
         self.assertNotIn("why_it_matters", data)
+        self.assertNotIn("how_to_fix", data)
+        self.assertNotIn("severity", data)
+        self.assertNotIn("remediation", data)
+        self.assertNotIn("supported_os", data)
+        self.assertNotIn("requires_admin", data)
 
     def test_findings_are_sorted_by_severity(self):
         findings = [
