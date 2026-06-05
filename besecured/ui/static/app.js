@@ -223,10 +223,23 @@ function renderResults() {
           <div class="summary-item is-warning"><strong>${statusCount(data, "WARN")}</strong><span>Warning</span></div>
           <div class="summary-item is-info"><strong>${statusCount(data, "INFO")}</strong><span>Info</span></div>
           <div class="summary-item is-passed"><strong>${statusCount(data, "OK")}</strong><span>OK</span></div>
+          <div class="summary-item is-skipped"><strong>${statusCount(data, "SKIP")}</strong><span>Skipped</span></div>
+        </div>
+        <div class="score-explain">
+          <h2>Score calculation</h2>
+          <p>${escapeHtml(scoreSummary(data))}</p>
+          <div class="weight-row">
+            ${renderWeight("CRIT", data)}
+            ${renderWeight("WARN", data)}
+            ${renderWeight("OK", data)}
+          </div>
+          <ul class="score-steps">
+            ${scoreSteps(data).map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
+          </ul>
         </div>
       </div>
       <aside class="side-panel" aria-label="Category summary">
-        <h2>Category view</h2>
+        <h2>Category impact</h2>
         <div class="category-bars">
           ${renderCategoryBars(data)}
         </div>
@@ -247,13 +260,20 @@ function renderCategoryBars(data) {
     const total = Math.max(categoryFindings.length, 1);
     const fallbackScore = Math.round(((total - bad) / total) * 100);
     const score = data.category_scores[category] ?? fallbackScore;
-    return { category, bad, score };
+    const detail = data.score_details?.category_details?.[category] || {};
+    return {
+      category,
+      bad,
+      score,
+      lostPoints: Number(detail.lost_points ?? 0),
+      maxPoints: Number(detail.max_points ?? 0)
+    };
   });
   return categories.map((item) => `
     <div class="category-bar">
       <div class="bar-head">
         <strong>${escapeHtml(item.category)}</strong>
-        <span>${item.bad} to review</span>
+        <span>${item.bad} to review, ${item.lostPoints}/${item.maxPoints} pts lost</span>
       </div>
       <div class="bar-track">
         <div class="bar-fill" style="width:${item.score}%"></div>
@@ -350,6 +370,8 @@ function renderReport() {
           ${reportRow("Scan date", formatDate(data.generated_at))}
           ${reportRow("Operating system", systemLabel(data))}
           ${reportRow("Risk score", `${data.overall_score} / 100`)}
+          ${reportRow("Score formula", scoreFormula(data))}
+          ${reportRow("Severity points", `${scoreLostPoints(data)} lost / ${scoreMaxPoints(data)} max`)}
           ${reportRow("Issues to review", String(issueCount))}
           ${reportRow("Data source", data.scan_source === "sample" ? "Prototype sample JSON" : "Local scanner")}
         </div>
@@ -372,6 +394,20 @@ function renderReport() {
 
 function reportRow(label, value) {
   return `<div class="report-row"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></div>`;
+}
+
+function renderWeight(status, data) {
+  const details = data.score_details || {};
+  const weights = details.severity_weights || {};
+  const impact = details.status_impact?.[status] || {};
+  const weight = Number(weights[status] ?? 0);
+  const lost = Number(impact.lost_points ?? 0);
+  return `
+    <div class="weight-pill">
+      <strong>${statusLabel(status)}</strong>
+      <span>${weight} pts each, ${lost} lost</span>
+    </div>
+  `;
 }
 
 function renderError() {
@@ -513,15 +549,32 @@ function normalizeScan(data) {
 function normalizeFinding(finding, index) {
   const status = String(finding.status || "").toUpperCase();
   const safeStatus = statusOrder[status] === undefined ? "INFO" : status;
-  const recommendedAction = finding.recommended_action || "Review if needed.";
+  const whatWeFound = finding.what_we_found || finding.detail || "No detail available.";
+  const whyItMatters = finding.why_it_matters || finding.explanation || "This item can affect the local security posture.";
+  const howToFix = finding.how_to_fix || finding.recommended_action || finding.remediation || "Review if needed.";
+  const supportedOs = Array.isArray(finding.supported_os)
+    ? finding.supported_os.filter(Boolean)
+    : finding.supported === false
+      ? []
+      : ["Windows", "Linux", "macOS"];
   return {
+    id: finding.id || `finding-${index}`,
     category: finding.category || "System",
     name: finding.name || `Security check ${index + 1}`,
+    title: finding.title || finding.name || `Security check ${index + 1}`,
     status: safeStatus,
-    detail: finding.detail || "No detail available.",
-    explanation: finding.explanation || "This item can affect the local security posture.",
-    recommended_action: recommendedAction,
-    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [recommendedAction]
+    severity: safeStatus,
+    severity_label: finding.severity_label || statusLabel(safeStatus),
+    detail: whatWeFound,
+    what_we_found: whatWeFound,
+    why_it_matters: whyItMatters,
+    explanation: whyItMatters,
+    how_to_fix: howToFix,
+    recommended_action: howToFix,
+    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [howToFix],
+    supported_os: supportedOs,
+    supported: supportedOs.length > 0,
+    requires_admin: Boolean(finding.requires_admin || finding.admin_required)
   };
 }
 
@@ -569,6 +622,30 @@ function statusCount(data, status) {
   return Number(data.status_counts?.[status] ?? 0);
 }
 
+function scoreSummary(data) {
+  return data.score_details?.summary || data.scoring_note || "Score details unavailable.";
+}
+
+function scoreSteps(data) {
+  const steps = data.score_details?.calculation_steps;
+  if (Array.isArray(steps) && steps.length) {
+    return steps;
+  }
+  return [`Final score: ${scoreFormula(data)} = ${data.overall_score}.`];
+}
+
+function scoreFormula(data) {
+  return data.score_details?.formula || "100 - round(lost_points / max_points * 100)";
+}
+
+function scoreLostPoints(data) {
+  return Number(data.score_details?.lost_points ?? 0);
+}
+
+function scoreMaxPoints(data) {
+  return Number(data.score_details?.max_points ?? 0);
+}
+
 function statusLabel(status) {
   return {
     CRIT: "Critical",
@@ -589,6 +666,13 @@ function categoriesForResults(data) {
 
 function systemLabel(data) {
   return data.system_info?.OS || data.system_info?.System || "Unknown OS";
+}
+
+function osSupportLabel(supportedOs) {
+  if (!Array.isArray(supportedOs) || supportedOs.length === 0) {
+    return "Unsupported OS";
+  }
+  return `OS: ${supportedOs.join(", ")}`;
 }
 
 function statusText(data) {
@@ -654,7 +738,7 @@ function exportReport() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `BeSecured-report-${state.results.generated_at.slice(0, 10)}.html`;
+  anchor.download = `BeSecured-report-${String(state.results.generated_at).slice(0, 10)}.html`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
@@ -668,9 +752,12 @@ function renderExportHtml(data) {
   const issues = sortedFindings(data.findings).map((finding) => `
     <section>
       <h2>${escapeHtml(finding.name)}</h2>
-      <p><strong>Status:</strong> ${escapeHtml(statusLabel(finding.status))}</p>
-      <p><strong>What we found:</strong> ${escapeHtml(finding.detail)}</p>
-      <p><strong>Why it matters:</strong> ${escapeHtml(finding.explanation)}</p>
+      <p><strong>Severity:</strong> ${escapeHtml(statusLabel(finding.status))}</p>
+      <p><strong>Category:</strong> ${escapeHtml(finding.category)}</p>
+      <p><strong>OS support:</strong> ${escapeHtml(osSupportLabel(finding.supported_os))}</p>
+      <p><strong>Admin:</strong> ${finding.requires_admin ? "Required" : "Not required"}</p>
+      <p><strong>What we found:</strong> ${escapeHtml(finding.what_we_found)}</p>
+      <p><strong>Why it matters:</strong> ${escapeHtml(finding.why_it_matters)}</p>
       <p><strong>How to fix it:</strong></p>
       <ul>${finding.fix_steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ul>
     </section>
@@ -695,6 +782,9 @@ function renderExportHtml(data) {
       <p>Scan date: ${escapeHtml(formatDate(data.generated_at))}</p>
       <p>Operating system: ${escapeHtml(systemLabel(data))}</p>
       <p>Score: ${data.overall_score} / 100</p>
+      <p>Formula: ${escapeHtml(scoreFormula(data))}</p>
+      <p>Severity points: ${scoreLostPoints(data)} lost / ${scoreMaxPoints(data)} max</p>
+      <p>${escapeHtml(scoreSummary(data))}</p>
       <p>Issues to review: ${issueCount}</p>
     </header>
     ${issues}

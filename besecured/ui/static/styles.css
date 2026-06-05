@@ -581,7 +581,7 @@ button {
 
 .summary-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 24px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -626,6 +626,10 @@ button {
 
 .summary-item.is-passed strong {
   color: var(--ok);
+}
+
+.summary-item.is-skipped strong {
+  color: var(--skip);
 }
 
 .category-bars {

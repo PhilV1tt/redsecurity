@@ -28,8 +28,9 @@ class ReportTests(unittest.TestCase):
 
         html = render_html(result)
 
-        self.assertIn("Explanation", html)
-        self.assertIn("Action", html)
+        self.assertIn("What we found", html)
+        self.assertIn("Why it matters", html)
+        self.assertIn("How to fix it", html)
         self.assertIn("A disabled firewall can expose local services to other machines.", html)
         self.assertIn("Enable the firewall.", html)
         self.assertIn("does not upload scan data", html)
