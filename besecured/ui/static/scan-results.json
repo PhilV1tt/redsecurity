@@ -1,0 +1,195 @@
+{
+  "data_source": "mock",
+  "scanner_note": "Prototype data only. The UI has not run local OS checks.",
+  "os_name": "Windows 11 Pro",
+  "scan_time": "2026-06-05T09:42:00+02:00",
+  "score": 68,
+  "risk_level": "warning",
+  "summary": {
+    "critical": 1,
+    "warning": 4,
+    "passed": 5,
+    "info": 1,
+    "skipped": 1
+  },
+  "findings": [
+    {
+      "id": "firewall-public-profile-off",
+      "category": "Protection",
+      "title": "Firewall is off for public networks",
+      "severity": "critical",
+      "status": "CRIT",
+      "detail": "The sample result shows the public firewall profile disabled.",
+      "why_it_matters": "On public networks, an inactive firewall can expose services that should stay blocked.",
+      "fix_steps": [
+        "Open Windows Security.",
+        "Go to Firewall and network protection.",
+        "Turn the firewall on for public networks."
+      ],
+      "supported": true,
+      "requires_admin": true
+    },
+    {
+      "id": "remote-desktop-listening",
+      "category": "Network",
+      "title": "Remote Desktop appears exposed",
+      "severity": "warning",
+      "status": "WARN",
+      "detail": "The sample result shows TCP port 3389 listening on all local interfaces.",
+      "why_it_matters": "Remote Desktop should not be reachable unless it is required and protected.",
+      "fix_steps": [
+        "Turn off Remote Desktop if you do not use it.",
+        "If you need it, restrict it to trusted networks.",
+        "Use a strong password and keep Windows updated."
+      ],
+      "supported": true,
+      "requires_admin": false
+    },
+    {
+      "id": "old-defender-signatures",
+      "category": "Protection",
+      "title": "Security signatures are out of date",
+      "severity": "warning",
+      "status": "WARN",
+      "detail": "The sample result shows antivirus signatures last updated 11 days ago.",
+      "why_it_matters": "Old signatures can miss recent malware and suspicious files.",
+      "fix_steps": [
+        "Open Windows Security.",
+        "Go to Virus and threat protection.",
+        "Run a protection update."
+      ],
+      "supported": true,
+      "requires_admin": false
+    },
+    {
+      "id": "weak-password-age",
+      "category": "Accounts",
+      "title": "Password policy is weak",
+      "severity": "warning",
+      "status": "WARN",
+      "detail": "The sample result shows no maximum password age configured.",
+      "why_it_matters": "A weak password policy makes stale or reused passwords more likely.",
+      "fix_steps": [
+        "Review local password rules.",
+        "Use long passwords or passphrases.",
+        "Enable multi factor authentication where available."
+      ],
+      "supported": true,
+      "requires_admin": true
+    },
+    {
+      "id": "updates-older-than-month",
+      "category": "Updates",
+      "title": "System updates need attention",
+      "severity": "warning",
+      "status": "WARN",
+      "detail": "The sample result shows the last successful update was 32 days ago.",
+      "why_it_matters": "Security updates close known vulnerabilities attackers often reuse.",
+      "fix_steps": [
+        "Open Settings.",
+        "Go to Windows Update.",
+        "Install pending security updates and restart if needed."
+      ],
+      "supported": true,
+      "requires_admin": false
+    },
+    {
+      "id": "guest-disabled",
+      "category": "Accounts",
+      "title": "Guest account is disabled",
+      "severity": "passed",
+      "status": "OK",
+      "detail": "The sample result shows no active Guest account.",
+      "why_it_matters": "Disabled guest access reduces casual access to the device.",
+      "fix_steps": [
+        "No action needed."
+      ],
+      "supported": true,
+      "requires_admin": false
+    },
+    {
+      "id": "uac-enabled",
+      "category": "System",
+      "title": "User Account Control is enabled",
+      "severity": "passed",
+      "status": "OK",
+      "detail": "The sample result shows UAC enabled.",
+      "why_it_matters": "UAC helps stop unexpected changes from running with administrator rights.",
+      "fix_steps": [
+        "Keep UAC enabled."
+      ],
+      "supported": true,
+      "requires_admin": false
+    },
+    {
+      "id": "common-web-ports-closed",
+      "category": "Network",
+      "title": "Common web ports are closed",
+      "severity": "passed",
+      "status": "OK",
+      "detail": "The sample result shows ports 80 and 443 are not listening locally.",
+      "why_it_matters": "Closed unused ports reduce the machine surface visible on the network.",
+      "fix_steps": [
+        "No action needed."
+      ],
+      "supported": true,
+      "requires_admin": false
+    },
+    {
+      "id": "filevault-bitlocker-present",
+      "category": "System",
+      "title": "Disk encryption is detected",
+      "severity": "passed",
+      "status": "OK",
+      "detail": "The sample result shows device encryption enabled.",
+      "why_it_matters": "Disk encryption helps protect data if the device is lost or stolen.",
+      "fix_steps": [
+        "Keep your recovery key stored safely."
+      ],
+      "supported": true,
+      "requires_admin": false
+    },
+    {
+      "id": "startup-temp-clear",
+      "category": "System",
+      "title": "No suspicious TEMP startup entry",
+      "severity": "passed",
+      "status": "OK",
+      "detail": "The sample result shows no startup entry running from a temporary folder.",
+      "why_it_matters": "Malware often persists through startup entries in unusual locations.",
+      "fix_steps": [
+        "No action needed."
+      ],
+      "supported": true,
+      "requires_admin": false
+    },
+    {
+      "id": "scan-privileges",
+      "category": "System",
+      "title": "Some checks may need administrator access",
+      "severity": "info",
+      "status": "INFO",
+      "detail": "The sample result includes checks that would need elevated permissions in a real scan.",
+      "why_it_matters": "Limited permissions can hide some local account or policy details.",
+      "fix_steps": [
+        "Run the final packaged scanner as administrator only if you trust it and need full local detail."
+      ],
+      "supported": true,
+      "requires_admin": true
+    },
+    {
+      "id": "enterprise-update-history",
+      "category": "Updates",
+      "title": "Enterprise update history was not available",
+      "severity": "skipped",
+      "status": "SKIP",
+      "detail": "The sample result marks this check as unsupported for the current prototype data.",
+      "why_it_matters": "Skipped checks are shown for transparency but do not change the score.",
+      "fix_steps": [
+        "No action needed in this UI prototype."
+      ],
+      "supported": false,
+      "requires_admin": true
+    }
+  ]
+}
