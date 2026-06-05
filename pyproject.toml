@@ -1,0 +1,9 @@
+[project]
+name = "besecured"
+version = "0.1.0"
+description = "Local multi-OS cybersecurity awareness scanner"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+besecured = "besecured.cli:main"

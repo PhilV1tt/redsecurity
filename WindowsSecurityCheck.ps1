@@ -11,7 +11,7 @@
 #>
 
 param(
-    [string]$OutputPath = "$env:USERPROFILE\Desktop\SecurityReport.html"
+    [string]$OutputPath = ""
 )
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -21,6 +21,42 @@ function Write-Step($msg) {
 function Write-OK($msg)   { Write-Host "  [OK]  $msg" -ForegroundColor Green }
 function Write-WARN($msg) { Write-Host "  [!!]  $msg" -ForegroundColor Yellow }
 function Write-CRIT($msg) { Write-Host "  [XX]  $msg" -ForegroundColor Red }
+
+function Get-DefaultOutputPath {
+    $base = [Environment]::GetFolderPath("LocalApplicationData")
+    if ([string]::IsNullOrWhiteSpace($base)) { $base = Join-Path $env:USERPROFILE "AppData\Local" }
+    return (Join-Path $base "BeSecured\Reports\SecurityReport.html")
+}
+
+function Test-LocalOutputPath($path) {
+    if (($path -match "^[A-Za-z][A-Za-z0-9+.-]*:/") -and ($path -notmatch "^[A-Za-z]:[\\/]")) { return $false }
+    if ($path.StartsWith("\\")) { return ($path -match "^\\\\\?\\[A-Za-z]:\\") }
+    try {
+        $full = [System.IO.Path]::GetFullPath($path)
+        $normalized = $full.Replace("/", "\").ToLowerInvariant()
+        $blockedPrefixes = @("\onedrive", "\dropbox", "\google drive", "\box sync", "\nextcloud", "\owncloud", "\creative cloud files", "\iclouddrive", "\icloud drive", "\mobile documents")
+        foreach ($marker in $blockedPrefixes) {
+            if ($normalized.Contains($marker)) { return $false }
+        }
+        $blockedExact = @("\box\")
+        foreach ($marker in $blockedExact) {
+            if ($normalized.Contains($marker)) { return $false }
+        }
+        $root = [System.IO.Path]::GetPathRoot($full)
+        if (-not [string]::IsNullOrWhiteSpace($root)) {
+            $drive = [System.IO.DriveInfo]::new($root)
+            if ($drive.DriveType -eq [System.IO.DriveType]::Network) { return $false }
+        }
+    } catch {}
+    return $true
+}
+
+if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Get-DefaultOutputPath }
+
+if (-not (Test-LocalOutputPath $OutputPath)) {
+    Write-Host "  [XX] Refusing to write a report to a remote path. Use a local disk path." -ForegroundColor Red
+    exit 1
+}
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")
 
@@ -110,38 +146,24 @@ try {
 Write-Step "Checking Windows Update status..."
 $cat = "Updates"
 try {
-    $wu = New-Object -ComObject Microsoft.Update.Session -ErrorAction SilentlyContinue
-    $searcher = $wu.CreateUpdateSearcher()
-    $result = $searcher.Search("IsInstalled=0 and Type='Software'")
-    $pending = $result.Updates.Count
-    if ($pending -eq 0) {
-        Add-Finding $cat "Pending Updates" "OK" "No pending Windows updates"
-        Write-OK "Windows is up to date"
-    } elseif ($pending -lt 5) {
-        Add-Finding $cat "Pending Updates" "WARN" "$pending updates pending installation"
-        Write-WARN "$pending pending updates"
-    } else {
-        Add-Finding $cat "Pending Updates" "CRIT" "$pending updates pending — system may be vulnerable"
-        Write-CRIT "$pending pending updates!"
-    }
-} catch {
-    # Fallback: check last update date from registry
-    try {
-        $lastUpdate = (Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn
+    $lastUpdate = (Get-HotFix -ErrorAction SilentlyContinue | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn
+    if ($lastUpdate) {
         $daysSince = ((Get-Date) - $lastUpdate).Days
         if ($daysSince -lt 30) {
             Add-Finding $cat "Last Hotfix" "OK" "Last hotfix installed $daysSince days ago ($lastUpdate)"
             Write-OK "Last hotfix: $daysSince days ago"
         } elseif ($daysSince -lt 90) {
-            Add-Finding $cat "Last Hotfix" "WARN" "Last hotfix was $daysSince days ago — consider updating"
+            Add-Finding $cat "Last Hotfix" "WARN" "Last hotfix was $daysSince days ago - consider updating"
             Write-WARN "Last hotfix was $daysSince days ago"
         } else {
-            Add-Finding $cat "Last Hotfix" "CRIT" "Last hotfix was $daysSince days ago — system likely unpatched"
+            Add-Finding $cat "Last Hotfix" "CRIT" "Last hotfix was $daysSince days ago - system likely unpatched"
             Write-CRIT "Last hotfix was $daysSince days ago!"
         }
-    } catch {
-        Add-Finding $cat "Update Check" "WARN" "Could not determine update status"
+    } else {
+        Add-Finding $cat "Last Hotfix" "WARN" "Could not determine last update date"
     }
+} catch {
+    Add-Finding $cat "Update Check" "WARN" "Could not determine update status"
 }
 
 # ─── 4. LOCAL USERS & ADMINS ───────────────────────────────────────────────────
@@ -368,14 +390,24 @@ $grade = switch ($true) {
 # ─── BUILD HTML ────────────────────────────────────────────────────────────────
 Write-Step "Generating HTML report..."
 
-# Build JS arrays for charts
-$catNames  = ($scores.Keys | ForEach-Object { "`"$_`"" }) -join ","
-$catScores = ($scores.Keys | ForEach-Object {
+# Build local chart rows
+$categoryBars = ($scores.Keys | Sort-Object | ForEach-Object {
     $s = $scores[$_]
-    if ($s.Total -gt 0) { [math]::Round(($s.Good / $s.Total) * 100) } else { 0 }
-}) -join ","
+    $pct = if ($s.Total -gt 0) { [math]::Round(($s.Good / $s.Total) * 100) } else { 0 }
+    "<div class='bar-row'><div class='bar-label'>$_</div><div class='bar-track'><span style='width:$pct%'></span></div><div class='bar-value'>$pct%</div></div>"
+}) -join "`n"
 
-$statusCounts = "[`"OK`",`"WARN`",`"CRIT`",`"INFO`"], [$totalGood,$totalWarn,$totalCrit,$totalInfo]"
+$distTotal = [math]::Max(1, $totalGood + $totalWarn + $totalCrit + $totalInfo)
+$okPct = [math]::Round(($totalGood / $distTotal) * 100)
+$warnPct = [math]::Round(($totalWarn / $distTotal) * 100)
+$critPct = [math]::Round(($totalCrit / $distTotal) * 100)
+$infoPct = [math]::Round(($totalInfo / $distTotal) * 100)
+$distributionBars = @"
+<div class='bar-row'><div class='bar-label'>Passed</div><div class='bar-track'><span class='bar-ok' style='width:$okPct%'></span></div><div class='bar-value'>$totalGood</div></div>
+<div class='bar-row'><div class='bar-label'>Warnings</div><div class='bar-track'><span class='bar-warn' style='width:$warnPct%'></span></div><div class='bar-value'>$totalWarn</div></div>
+<div class='bar-row'><div class='bar-label'>Critical</div><div class='bar-track'><span class='bar-crit' style='width:$critPct%'></span></div><div class='bar-value'>$totalCrit</div></div>
+<div class='bar-row'><div class='bar-label'>Info</div><div class='bar-track'><span class='bar-info' style='width:$infoPct%'></span></div><div class='bar-value'>$totalInfo</div></div>
+"@
 
 # Build findings table rows
 $tableRows = ($findings | ForEach-Object {
@@ -412,10 +444,8 @@ $html = @"
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Report — $($sysInfo['Hostname'])</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<title>Security Report - $($sysInfo['Hostname'])</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap');
   :root {
     --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235;
     --border: #1e3a5f; --accent: #00d4ff; --accent2: #7c3aed;
@@ -423,7 +453,7 @@ $html = @"
     --text: #e2e8f0; --muted: #64748b;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Exo 2', sans-serif;
+  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
          min-height: 100vh; padding: 2rem; }
   body::before {
     content: ''; position: fixed; inset: 0; z-index: -1;
@@ -437,12 +467,12 @@ $html = @"
     content: ''; display: block; height: 1px; margin-top: 1.5rem;
     background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
   }
-  .logo { font-family: 'Share Tech Mono', monospace; font-size: 0.75rem;
+  .logo { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.75rem;
           color: var(--accent); letter-spacing: 4px; text-transform: uppercase; margin-bottom: 0.5rem; }
-  h1 { font-size: 2.2rem; font-weight: 900; letter-spacing: -1px;
+  h1 { font-size: 2.2rem; font-weight: 900; letter-spacing: 0;
        background: linear-gradient(135deg, var(--accent), var(--accent2));
        -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .subtitle { color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; font-family: 'Share Tech Mono', monospace; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
   /* ── Grid ── */
   .grid-top { display: grid; grid-template-columns: 200px 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
@@ -459,14 +489,16 @@ $html = @"
   }
   .card-title {
     font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 3px;
-    color: var(--muted); margin-bottom: 1rem; font-family: 'Share Tech Mono', monospace;
+    color: var(--muted); margin-bottom: 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
+  .privacy { margin-bottom: 1.5rem; color: var(--text); }
+  .privacy p { color: var(--muted); font-size: 0.9rem; }
 
   /* ── Grade ── */
   .grade-card { display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .grade-letter { font-size: 5rem; font-weight: 900; line-height: 1; color: $gradeColor;
                   text-shadow: 0 0 30px ${gradeColor}88; }
-  .grade-score  { font-size: 1.1rem; color: var(--muted); font-family: 'Share Tech Mono', monospace; }
+  .grade-score  { font-size: 1.1rem; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
   /* ── Stat pills ── */
   .stats { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: center; }
@@ -482,11 +514,20 @@ $html = @"
   .si-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   .si-table tr { border-bottom: 1px solid var(--border); }
   .si-table tr:last-child { border-bottom: none; }
-  .si-key { color: var(--muted); padding: 0.35rem 0; font-family: 'Share Tech Mono', monospace; width: 40%; }
+  .si-key { color: var(--muted); padding: 0.35rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; width: 40%; }
   .si-val { color: var(--text); font-weight: 600; }
 
   /* ── Charts ── */
-  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap { display: grid; gap: 0.8rem; min-height: 260px; align-content: center; }
+  .bar-row { display: grid; grid-template-columns: 140px 1fr 48px; gap: 0.75rem; align-items: center; }
+  .bar-label { color: var(--text); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { height: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .bar-track span { display: block; height: 100%; background: var(--accent); }
+  .bar-track .bar-ok { background: var(--ok); }
+  .bar-track .bar-warn { background: var(--warn); }
+  .bar-track .bar-crit { background: var(--crit); }
+  .bar-track .bar-info { background: var(--info); }
+  .bar-value { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; text-align: right; }
 
   /* ── Findings Table ── */
   .findings-card { margin-top: 0; }
@@ -494,18 +535,18 @@ $html = @"
   .findings-table thead th {
     background: var(--surface2); color: var(--muted); text-transform: uppercase;
     letter-spacing: 2px; font-size: 0.68rem; padding: 0.7rem 0.8rem; text-align: left;
-    font-family: 'Share Tech Mono', monospace; border-bottom: 1px solid var(--border);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border-bottom: 1px solid var(--border);
   }
   .findings-table tbody tr { border-bottom: 1px solid rgba(30,58,95,0.5); transition: background 0.15s; }
   .findings-table tbody tr:hover { background: var(--surface2); }
   .findings-table td { padding: 0.6rem 0.8rem; vertical-align: middle; }
   .cat { color: var(--accent); font-weight: 600; font-size: 0.78rem;
-         white-space: nowrap; font-family: 'Share Tech Mono', monospace; }
+         white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .detail { color: var(--muted); font-size: 0.8rem; }
 
   /* ── Footer ── */
   .footer { text-align: center; margin-top: 2rem; color: var(--muted);
-            font-size: 0.75rem; font-family: 'Share Tech Mono', monospace; }
+            font-size: 0.75rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 </style>
 </head>
 <body>
@@ -514,6 +555,11 @@ $html = @"
   <div class="logo">// Windows Security Personality Checker //</div>
   <h1>Security Report</h1>
   <div class="subtitle">HOST: $($sysInfo['Hostname']) &nbsp;|&nbsp; SCAN: $($sysInfo['ScanTime'])</div>
+</div>
+
+<div class="card privacy">
+  <div class="card-title">Privacy</div>
+  <p>BeSecured runs 100% locally. No scan data is sent to a server. No account, cloud API or remote backend is used.</p>
 </div>
 
 <div class="grid-top">
@@ -549,11 +595,11 @@ $html = @"
 <div class="grid-charts">
   <div class="card">
     <div class="card-title">Score by Category</div>
-    <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+    <div class="chart-wrap">$categoryBars</div>
   </div>
   <div class="card">
     <div class="card-title">Finding Distribution</div>
-    <div class="chart-wrap"><canvas id="donutChart"></canvas></div>
+    <div class="chart-wrap">$distributionBars</div>
   </div>
 </div>
 
@@ -573,62 +619,13 @@ $html = @"
   Generated by WindowsSecurityCheck.ps1 &nbsp;·&nbsp; $($sysInfo['ScanTime'])
 </div>
 
-<script>
-const GRID = 'rgba(30,58,95,0.5)';
-const TICK = '#475569';
-
-// Radar
-new Chart(document.getElementById('radarChart'), {
-  type: 'radar',
-  data: {
-    labels: [$catNames],
-    datasets: [{
-      label: 'Score %',
-      data: [$catScores],
-      backgroundColor: 'rgba(0,212,255,0.15)',
-      borderColor: '#00d4ff',
-      pointBackgroundColor: '#00d4ff',
-      pointBorderColor: '#fff',
-      borderWidth: 2
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    scales: {
-      r: {
-        min: 0, max: 100, ticks: { stepSize: 25, color: TICK, backdropColor: 'transparent', font:{size:9} },
-        grid: { color: GRID }, angleLines: { color: GRID },
-        pointLabels: { color: '#94a3b8', font: { size: 10, family: "'Share Tech Mono', monospace" } }
-      }
-    },
-    plugins: { legend: { display: false } }
-  }
-});
-
-// Donut
-new Chart(document.getElementById('donutChart'), {
-  type: 'doughnut',
-  data: {
-    labels: ['OK','WARN','CRIT','INFO'],
-    datasets: [{
-      data: [$totalGood,$totalWarn,$totalCrit,$totalInfo],
-      backgroundColor: ['rgba(34,197,94,0.8)','rgba(245,158,11,0.8)','rgba(239,68,68,0.8)','rgba(96,165,250,0.8)'],
-      borderColor: '#0a0e1a', borderWidth: 3, hoverOffset: 8
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false, cutout: '65%',
-    plugins: {
-      legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16, font:{size:11} } }
-    }
-  }
-});
-</script>
 </body>
 </html>
 "@
 
 # Write file
+$outputDir = [System.IO.Path]::GetDirectoryName($OutputPath)
+if ($outputDir -and -not (Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
 $html | Out-File -FilePath $OutputPath -Encoding UTF8
 
 Write-Host ""
