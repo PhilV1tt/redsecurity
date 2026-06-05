@@ -85,14 +85,26 @@ class Finding:
     def to_dict(self) -> dict[str, Any]:
         why = self.why_it_matters
         fix = self.how_to_fix
+        supported_os = list(self.supported_os)
         return {
             "category": self.category,
             "name": self.name,
+            "title": self.name,
             "status": self.status,
+            "severity": self.status,
+            "severity_label": self.severity_label,
             "detail": self.detail,
+            "what_we_found": self.what_we_found,
+            "why_it_matters": why,
+            "how_to_fix": fix,
             "explanation": why,
             "recommended_action": fix,
+            "remediation": fix,
             "fix_steps": [fix],
+            "supported_os": supported_os,
+            "supported": self.status != "SKIP",
+            "requires_admin": self.requires_admin,
+            "admin_required": self.requires_admin,
         }
 
 

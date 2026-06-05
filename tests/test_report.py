@@ -57,13 +57,14 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(data["explanation"], "Guest access can let someone use the machine without a named account.")
         self.assertEqual(data["recommended_action"], "Disable guest account.")
         self.assertEqual(data["fix_steps"], ["Disable guest account."])
-        self.assertNotIn("what_we_found", data)
-        self.assertNotIn("why_it_matters", data)
-        self.assertNotIn("how_to_fix", data)
-        self.assertNotIn("severity", data)
-        self.assertNotIn("remediation", data)
-        self.assertNotIn("supported_os", data)
-        self.assertNotIn("requires_admin", data)
+        self.assertEqual(data["what_we_found"], data["detail"])
+        self.assertEqual(data["why_it_matters"], data["explanation"])
+        self.assertEqual(data["how_to_fix"], data["recommended_action"])
+        self.assertEqual(data["severity"], data["status"])
+        self.assertEqual(data["severity_label"], "Critical")
+        self.assertEqual(data["remediation"], data["recommended_action"])
+        self.assertEqual(data["supported_os"], ["Windows", "Linux", "macOS"])
+        self.assertFalse(data["requires_admin"])
 
     def test_findings_are_sorted_by_severity(self):
         findings = [
@@ -97,13 +98,16 @@ class ReportTests(unittest.TestCase):
 
     def test_scanner_sources_do_not_reference_remote_assets_or_clients(self):
         root = Path(__file__).resolve().parents[1]
-        source_paths = [
+        candidate_paths = [
             *sorted((root / "besecured").rglob("*.py")),
             root / "README.md",
             root / "pyproject.toml",
             root / "WindowsSecurityCheck.ps1",
             root / "WindowsSecurityCheckv2.ps1",
+            root / "legacy" / "powershell" / "WindowsSecurityCheck.ps1",
+            root / "legacy" / "powershell" / "WindowsSecurityCheckv2.ps1",
         ]
+        source_paths = [path for path in candidate_paths if path.exists()]
         forbidden = (
             "https://",
             "http://",
@@ -119,6 +123,8 @@ class ReportTests(unittest.TestCase):
         )
 
         for path in source_paths:
+            if not path.exists():
+                continue
             text = path.read_text(encoding="utf-8")
             for marker in forbidden:
                 with self.subTest(path=path.name, marker=marker):

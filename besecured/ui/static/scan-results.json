@@ -3,8 +3,9 @@
   "scan_source": "sample",
   "generated_at": "2026-06-05T09:42:00+02:00",
   "system_info": {
-    "Hostname": "sample-device",
-    "OS": "Windows 11 Pro"
+    "OS": "Windows 11 Pro",
+    "System": "Windows",
+    "Hostname": "sample-device"
   },
   "status_counts": {
     "CRIT": 1,
@@ -239,134 +240,314 @@
     {
       "category": "Protection",
       "name": "Firewall is off for public networks",
+      "title": "Firewall is off for public networks",
       "status": "CRIT",
+      "severity": "CRIT",
+      "severity_label": "Critical",
       "detail": "The sample result shows the public firewall profile disabled.",
+      "what_we_found": "The sample result shows the public firewall profile disabled.",
+      "why_it_matters": "On public networks, an inactive firewall can expose services that should stay blocked.",
+      "how_to_fix": "Turn the firewall on for public networks.",
       "explanation": "On public networks, an inactive firewall can expose services that should stay blocked.",
       "recommended_action": "Turn the firewall on for public networks.",
+      "remediation": "Turn the firewall on for public networks.",
       "fix_steps": [
         "Turn the firewall on for public networks."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": true,
+      "admin_required": true
     },
     {
       "category": "Accounts",
       "name": "Password policy is weak",
+      "title": "Password policy is weak",
       "status": "WARN",
+      "severity": "WARN",
+      "severity_label": "Warning",
       "detail": "The sample result shows no maximum password age configured.",
+      "what_we_found": "The sample result shows no maximum password age configured.",
+      "why_it_matters": "A weak password policy makes stale or reused passwords more likely.",
+      "how_to_fix": "Review local password rules and use long unique passwords.",
       "explanation": "A weak password policy makes stale or reused passwords more likely.",
       "recommended_action": "Review local password rules and use long unique passwords.",
+      "remediation": "Review local password rules and use long unique passwords.",
       "fix_steps": [
         "Review local password rules and use long unique passwords."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": true,
+      "admin_required": true
     },
     {
       "category": "Network",
       "name": "Remote Desktop appears exposed",
+      "title": "Remote Desktop appears exposed",
       "status": "WARN",
+      "severity": "WARN",
+      "severity_label": "Warning",
       "detail": "The sample result shows TCP port 3389 listening on all local interfaces.",
+      "what_we_found": "The sample result shows TCP port 3389 listening on all local interfaces.",
+      "why_it_matters": "Remote Desktop should not be reachable unless it is required and protected.",
+      "how_to_fix": "Turn off Remote Desktop if you do not use it, or restrict it to trusted networks.",
       "explanation": "Remote Desktop should not be reachable unless it is required and protected.",
       "recommended_action": "Turn off Remote Desktop if you do not use it, or restrict it to trusted networks.",
+      "remediation": "Turn off Remote Desktop if you do not use it, or restrict it to trusted networks.",
       "fix_steps": [
         "Turn off Remote Desktop if you do not use it, or restrict it to trusted networks."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": false,
+      "admin_required": false
     },
     {
       "category": "Protection",
       "name": "Security signatures are out of date",
+      "title": "Security signatures are out of date",
       "status": "WARN",
+      "severity": "WARN",
+      "severity_label": "Warning",
       "detail": "The sample result shows antivirus signatures last updated 11 days ago.",
+      "what_we_found": "The sample result shows antivirus signatures last updated 11 days ago.",
+      "why_it_matters": "Old signatures can miss recent malware and suspicious files.",
+      "how_to_fix": "Run a protection update in Windows Security.",
       "explanation": "Old signatures can miss recent malware and suspicious files.",
       "recommended_action": "Run a protection update in Windows Security.",
+      "remediation": "Run a protection update in Windows Security.",
       "fix_steps": [
         "Run a protection update in Windows Security."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": false,
+      "admin_required": false
     },
     {
       "category": "Updates",
       "name": "System updates need attention",
+      "title": "System updates need attention",
       "status": "WARN",
+      "severity": "WARN",
+      "severity_label": "Warning",
       "detail": "The sample result shows the last successful update was 32 days ago.",
+      "what_we_found": "The sample result shows the last successful update was 32 days ago.",
+      "why_it_matters": "Security updates close known vulnerabilities attackers often reuse.",
+      "how_to_fix": "Install pending security updates and restart if needed.",
       "explanation": "Security updates close known vulnerabilities attackers often reuse.",
       "recommended_action": "Install pending security updates and restart if needed.",
+      "remediation": "Install pending security updates and restart if needed.",
       "fix_steps": [
         "Install pending security updates and restart if needed."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": false,
+      "admin_required": false
     },
     {
       "category": "System",
       "name": "Some checks may need administrator access",
+      "title": "Some checks may need administrator access",
       "status": "INFO",
+      "severity": "INFO",
+      "severity_label": "Info",
       "detail": "The sample result includes checks that would need elevated permissions in a real scan.",
+      "what_we_found": "The sample result includes checks that would need elevated permissions in a real scan.",
+      "why_it_matters": "Limited permissions can hide some local account or policy details.",
+      "how_to_fix": "Run the final packaged scanner as administrator only if you trust it and need full local detail.",
       "explanation": "Limited permissions can hide some local account or policy details.",
       "recommended_action": "Run the final packaged scanner as administrator only if you trust it and need full local detail.",
+      "remediation": "Run the final packaged scanner as administrator only if you trust it and need full local detail.",
       "fix_steps": [
         "Run the final packaged scanner as administrator only if you trust it and need full local detail."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": true,
+      "admin_required": true
     },
     {
       "category": "Accounts",
       "name": "Guest account is disabled",
+      "title": "Guest account is disabled",
       "status": "OK",
+      "severity": "OK",
+      "severity_label": "OK",
       "detail": "The sample result shows no active Guest account.",
+      "what_we_found": "The sample result shows no active Guest account.",
+      "why_it_matters": "Disabled guest access reduces casual access to the device.",
+      "how_to_fix": "No action needed.",
       "explanation": "Disabled guest access reduces casual access to the device.",
       "recommended_action": "No action needed.",
+      "remediation": "No action needed.",
       "fix_steps": [
         "No action needed."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": false,
+      "admin_required": false
     },
     {
       "category": "Network",
       "name": "Common web ports are closed",
+      "title": "Common web ports are closed",
       "status": "OK",
+      "severity": "OK",
+      "severity_label": "OK",
       "detail": "The sample result shows ports 80 and 443 are not listening locally.",
+      "what_we_found": "The sample result shows ports 80 and 443 are not listening locally.",
+      "why_it_matters": "Closed unused ports reduce the machine surface visible on the network.",
+      "how_to_fix": "No action needed.",
       "explanation": "Closed unused ports reduce the machine surface visible on the network.",
       "recommended_action": "No action needed.",
+      "remediation": "No action needed.",
       "fix_steps": [
         "No action needed."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": false,
+      "admin_required": false
     },
     {
       "category": "System",
       "name": "Disk encryption is detected",
+      "title": "Disk encryption is detected",
       "status": "OK",
+      "severity": "OK",
+      "severity_label": "OK",
       "detail": "The sample result shows device encryption enabled.",
+      "what_we_found": "The sample result shows device encryption enabled.",
+      "why_it_matters": "Disk encryption helps protect data if the device is lost or stolen.",
+      "how_to_fix": "Keep your recovery key stored safely.",
       "explanation": "Disk encryption helps protect data if the device is lost or stolen.",
       "recommended_action": "Keep your recovery key stored safely.",
+      "remediation": "Keep your recovery key stored safely.",
       "fix_steps": [
         "Keep your recovery key stored safely."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": false,
+      "admin_required": false
     },
     {
       "category": "System",
       "name": "No suspicious TEMP startup entry",
+      "title": "No suspicious TEMP startup entry",
       "status": "OK",
+      "severity": "OK",
+      "severity_label": "OK",
       "detail": "The sample result shows no startup entry running from a temporary folder.",
+      "what_we_found": "The sample result shows no startup entry running from a temporary folder.",
+      "why_it_matters": "Malware often persists through startup entries in unusual locations.",
+      "how_to_fix": "No action needed.",
       "explanation": "Malware often persists through startup entries in unusual locations.",
       "recommended_action": "No action needed.",
+      "remediation": "No action needed.",
       "fix_steps": [
         "No action needed."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": false,
+      "admin_required": false
     },
     {
       "category": "System",
       "name": "User Account Control is enabled",
+      "title": "User Account Control is enabled",
       "status": "OK",
+      "severity": "OK",
+      "severity_label": "OK",
       "detail": "The sample result shows UAC enabled.",
+      "what_we_found": "The sample result shows UAC enabled.",
+      "why_it_matters": "UAC helps stop unexpected changes from running with administrator rights.",
+      "how_to_fix": "Keep UAC enabled.",
       "explanation": "UAC helps stop unexpected changes from running with administrator rights.",
       "recommended_action": "Keep UAC enabled.",
+      "remediation": "Keep UAC enabled.",
       "fix_steps": [
         "Keep UAC enabled."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": true,
+      "requires_admin": false,
+      "admin_required": false
     },
     {
       "category": "Updates",
       "name": "Enterprise update history was not available",
+      "title": "Enterprise update history was not available",
       "status": "SKIP",
+      "severity": "SKIP",
+      "severity_label": "Skipped",
       "detail": "The sample result marks this check as unsupported for the current prototype data.",
+      "what_we_found": "The sample result marks this check as unsupported for the current prototype data.",
+      "why_it_matters": "Skipped checks are shown for transparency but do not change the score.",
+      "how_to_fix": "No action needed in this UI prototype.",
       "explanation": "Skipped checks are shown for transparency but do not change the score.",
       "recommended_action": "No action needed in this UI prototype.",
+      "remediation": "No action needed in this UI prototype.",
       "fix_steps": [
         "No action needed in this UI prototype."
-      ]
+      ],
+      "supported_os": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "supported": false,
+      "requires_admin": false,
+      "admin_required": false
     }
   ]
 }
