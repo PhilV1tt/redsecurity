@@ -221,8 +221,7 @@ function renderResults() {
         <div class="summary-strip" aria-label="Summary counts">
           <div class="summary-item is-critical"><strong>${data.summary.critical}</strong><span>Critical</span></div>
           <div class="summary-item is-warning"><strong>${data.summary.warning}</strong><span>Warning</span></div>
-          <div class="summary-item is-info"><strong>${data.summary.info}</strong><span>Info</span></div>
-          <div class="summary-item is-passed"><strong>${data.summary.passed}</strong><span>OK</span></div>
+          <div class="summary-item is-passed"><strong>${data.summary.passed}</strong><span>Passed</span></div>
         </div>
       </div>
       <aside class="side-panel" aria-label="Category summary">
@@ -271,14 +270,14 @@ function renderIssues() {
     <section aria-labelledby="issues-title">
       <div class="issues-heading">
         <h1 id="issues-title">Issues by severity</h1>
-        <p>Critical and Warning items appear first, then Info and OK checks.</p>
+        <p>Critical and Warning items appear first, then Info and passed checks.</p>
       </div>
       <div class="issue-toolbar" aria-label="Issue filters">
         ${renderFilter("all", "All")}
         ${renderFilter("critical", "Critical")}
         ${renderFilter("warning", "Warning")}
         ${renderFilter("info", "Info")}
-        ${renderFilter("passed", "OK")}
+        ${renderFilter("passed", "Passed")}
         ${renderFilter("skipped", "Skipped")}
       </div>
       <div class="issue-list">
