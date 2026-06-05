@@ -42,7 +42,14 @@ def check_firewall() -> list[Finding]:
         return [Finding(category, "Application Firewall", "OK", "macOS Application Firewall is enabled.", "Keep the firewall enabled unless a managed policy replaces it.")]
     if "disabled" in text:
         return [Finding(category, "Application Firewall", "CRIT", "macOS Application Firewall is disabled.", "Enable the firewall in System Settings > Network > Firewall.")]
-    return [Finding(category, "Application Firewall", "WARN", "Could not determine macOS firewall status.", "Open System Settings and verify that Firewall is enabled.")]
+    return [
+        unavailable_finding(
+            category,
+            "Application Firewall",
+            "macOS firewall status could not be parsed",
+            "Open System Settings and verify that Firewall is enabled.",
+        )
+    ]
 
 
 def check_updates() -> list[Finding]:
@@ -59,7 +66,14 @@ def check_updates() -> list[Finding]:
     result = run_command(["softwareupdate", "--history"], timeout=10)
     dates = _extract_dates(result.stdout)
     if not dates:
-        return [Finding(category, "Software Update", "WARN", "Could not determine macOS update freshness.", "Open System Settings and install pending macOS updates.")]
+        return [
+            unavailable_finding(
+                category,
+                "Software Update",
+                "macOS update history returned no usable date",
+                "Open System Settings and install pending macOS updates.",
+            )
+        ]
     age = (dt.datetime.now().date() - max(dates)).days
     if age < 30:
         status = "OK"
@@ -164,7 +178,14 @@ def _shared_folder_findings_from_text(category: str, text: str, command_ok: bool
     if "No shares" in clean_text or "There are no shared folders" in clean_text:
         return [Finding(category, "Shared Folders", "OK", "No shared folders detected by macOS sharing tool.", "Keep file sharing disabled unless it is needed.")]
     if not clean_text:
-        return [Finding(category, "Shared Folders", "WARN", "macOS sharing tool returned no output.", "Open System Settings and verify File Sharing manually.")]
+        return [
+            unavailable_finding(
+                category,
+                "Shared Folders",
+                "macOS sharing tool returned no output",
+                "Open System Settings and verify File Sharing manually.",
+            )
+        ]
     share_names = _dedupe(re.findall(r"(?im)^\s*name:\s*(.+)$", text))
     if not share_names and text:
         share_names = ["sharing output detected"]
@@ -247,7 +268,14 @@ def check_antimalware() -> list[Finding]:
             status = "OK" if age <= 14 else "WARN" if age <= 45 else "CRIT"
             findings.append(Finding(category, "XProtect Data", status, f"XProtect package install time is {age} day(s) old.", "Install pending macOS security updates."))
         else:
-            findings.append(Finding(category, "XProtect Data", "WARN", "Could not determine XProtect update age.", "Install pending macOS security updates."))
+            findings.append(
+                unavailable_finding(
+                    category,
+                    "XProtect Data",
+                    "XProtect package install time could not be determined",
+                    "Install pending macOS security updates and review XProtect status manually.",
+                )
+            )
     else:
         findings.append(
             unavailable_finding(

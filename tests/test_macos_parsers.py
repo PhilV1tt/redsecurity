@@ -33,6 +33,11 @@ class MacosParserTests(unittest.TestCase):
 
         self.assertEqual(findings[0].status, "SKIP")
 
+    def test_empty_sharing_output_returns_skip(self):
+        findings = _shared_folder_findings_from_text("Shared Folders", "", command_ok=True)
+
+        self.assertEqual(findings[0].status, "SKIP")
+
     def test_filevault_parser(self):
         self.assertEqual(_filevault_finding_from_text("FileVault is On.").status, "OK")
         self.assertEqual(_filevault_finding_from_text("FileVault is Off.").status, "WARN")
