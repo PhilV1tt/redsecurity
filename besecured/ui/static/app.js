@@ -259,12 +259,15 @@ function renderCategoryBars(data) {
     const bad = categoryFindings.filter((finding) => finding.status === "CRIT" || finding.status === "WARN").length;
     const total = Math.max(categoryFindings.length, 1);
     const fallbackScore = Math.round(((total - bad) / total) * 100);
-    const score = data.category_scores[category] ?? fallbackScore;
+    const rawScore = data.category_scores[category];
+    const isScored = rawScore !== null && rawScore !== undefined;
+    const score = isScored ? rawScore : fallbackScore;
     const detail = data.score_details?.category_details?.[category] || {};
     return {
       category,
       bad,
-      score,
+      score: isScored ? score : 0,
+      label: isScored ? `${bad} to review, ${Number(detail.lost_points ?? 0)}/${Number(detail.max_points ?? 0)} pts lost` : "Not scored",
       lostPoints: Number(detail.lost_points ?? 0),
       maxPoints: Number(detail.max_points ?? 0)
     };
@@ -273,7 +276,7 @@ function renderCategoryBars(data) {
     <div class="category-bar">
       <div class="bar-head">
         <strong>${escapeHtml(item.category)}</strong>
-        <span>${item.bad} to review, ${item.lostPoints}/${item.maxPoints} pts lost</span>
+        <span>${escapeHtml(item.label)}</span>
       </div>
       <div class="bar-track">
         <div class="bar-fill" style="width:${item.score}%"></div>

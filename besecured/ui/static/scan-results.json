@@ -144,7 +144,7 @@
         "status": "CRIT",
         "severity_points": 5,
         "max_severity_points": 5,
-        "score_impact_percent": 10.0
+        "score_impact_percent": 10
       },
       {
         "category": "Accounts",
@@ -152,7 +152,7 @@
         "status": "WARN",
         "severity_points": 2,
         "max_severity_points": 5,
-        "score_impact_percent": 4.0
+        "score_impact_percent": 4
       },
       {
         "category": "Network",
@@ -160,7 +160,7 @@
         "status": "WARN",
         "severity_points": 2,
         "max_severity_points": 5,
-        "score_impact_percent": 4.0
+        "score_impact_percent": 4
       },
       {
         "category": "Protection",
@@ -168,7 +168,7 @@
         "status": "WARN",
         "severity_points": 2,
         "max_severity_points": 5,
-        "score_impact_percent": 4.0
+        "score_impact_percent": 4
       },
       {
         "category": "Updates",
@@ -176,7 +176,7 @@
         "status": "WARN",
         "severity_points": 2,
         "max_severity_points": 5,
-        "score_impact_percent": 4.0
+        "score_impact_percent": 4
       },
       {
         "category": "Accounts",
@@ -184,7 +184,7 @@
         "status": "OK",
         "severity_points": 0,
         "max_severity_points": 5,
-        "score_impact_percent": 0.0
+        "score_impact_percent": 0
       },
       {
         "category": "Network",
@@ -192,7 +192,7 @@
         "status": "OK",
         "severity_points": 0,
         "max_severity_points": 5,
-        "score_impact_percent": 0.0
+        "score_impact_percent": 0
       },
       {
         "category": "System",
@@ -200,7 +200,7 @@
         "status": "OK",
         "severity_points": 0,
         "max_severity_points": 5,
-        "score_impact_percent": 0.0
+        "score_impact_percent": 0
       },
       {
         "category": "System",
@@ -208,7 +208,7 @@
         "status": "OK",
         "severity_points": 0,
         "max_severity_points": 5,
-        "score_impact_percent": 0.0
+        "score_impact_percent": 0
       },
       {
         "category": "System",
@@ -216,7 +216,7 @@
         "status": "OK",
         "severity_points": 0,
         "max_severity_points": 5,
-        "score_impact_percent": 0.0
+        "score_impact_percent": 0
       }
     ],
     "calculation_steps": [

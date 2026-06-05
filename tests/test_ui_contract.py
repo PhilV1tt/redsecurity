@@ -19,17 +19,20 @@ TOP_LEVEL_KEYS = {
     "scoring_note",
     "findings",
 }
-FINDING_KEYS = {
+REQUIRED_FINDING_KEYS = {
     "category",
     "name",
     "status",
-    "detail",
-    "explanation",
-    "recommended_action",
+    "severity",
+    "severity_label",
+    "what_we_found",
+    "why_it_matters",
+    "how_to_fix",
     "fix_steps",
+    "supported_os",
+    "requires_admin",
 }
 LEGACY_TOP_LEVEL_KEYS = {"data_source", "os_name", "risk_level", "scan_time", "score", "summary"}
-LEGACY_FINDING_KEYS = {"id", "title", "severity", "why_it_matters", "remediation", "supported", "requires_admin"}
 VALID_STATUSES = {"CRIT", "WARN", "INFO", "OK", "SKIP"}
 
 
@@ -48,11 +51,13 @@ class UiContractTests(unittest.TestCase):
 
         for finding in self.data["findings"]:
             with self.subTest(finding=finding.get("name")):
-                self.assertEqual(set(finding), FINDING_KEYS)
-                self.assertTrue(LEGACY_FINDING_KEYS.isdisjoint(finding))
+                self.assertTrue(REQUIRED_FINDING_KEYS.issubset(finding))
                 self.assertIn(finding["status"], VALID_STATUSES)
+                self.assertEqual(finding["severity"], finding["status"])
+                self.assertIsInstance(finding["supported_os"], list)
                 self.assertIsInstance(finding["fix_steps"], list)
                 self.assertGreater(len(finding["fix_steps"]), 0)
+                self.assertIsInstance(finding["requires_admin"], bool)
 
     def test_scan_result_to_dict_uses_same_contract_shape(self):
         result = ScanResult(
@@ -68,7 +73,7 @@ class UiContractTests(unittest.TestCase):
         ).to_dict()
 
         self.assertEqual(set(result), set(self.data))
-        self.assertEqual(set(result["findings"][0]), set(self.data["findings"][0]))
+        self.assertTrue(REQUIRED_FINDING_KEYS.issubset(result["findings"][0]))
 
     def test_status_counts_match_findings(self):
         for status in ["CRIT", "WARN", "INFO", "OK", "SKIP"]:
