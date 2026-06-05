@@ -549,32 +549,15 @@ function normalizeScan(data) {
 function normalizeFinding(finding, index) {
   const status = String(finding.status || "").toUpperCase();
   const safeStatus = statusOrder[status] === undefined ? "INFO" : status;
-  const whatWeFound = finding.what_we_found || finding.detail || "No detail available.";
-  const whyItMatters = finding.why_it_matters || finding.explanation || "This item can affect the local security posture.";
-  const howToFix = finding.how_to_fix || finding.recommended_action || finding.remediation || "Review if needed.";
-  const supportedOs = Array.isArray(finding.supported_os)
-    ? finding.supported_os.filter(Boolean)
-    : finding.supported === false
-      ? []
-      : ["Windows", "Linux", "macOS"];
+  const recommendedAction = finding.recommended_action || "Review if needed.";
   return {
-    id: finding.id || `finding-${index}`,
     category: finding.category || "System",
     name: finding.name || `Security check ${index + 1}`,
-    title: finding.title || finding.name || `Security check ${index + 1}`,
     status: safeStatus,
-    severity: safeStatus,
-    severity_label: finding.severity_label || statusLabel(safeStatus),
-    detail: whatWeFound,
-    what_we_found: whatWeFound,
-    why_it_matters: whyItMatters,
-    explanation: whyItMatters,
-    how_to_fix: howToFix,
-    recommended_action: howToFix,
-    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [howToFix],
-    supported_os: supportedOs,
-    supported: supportedOs.length > 0,
-    requires_admin: Boolean(finding.requires_admin || finding.admin_required)
+    detail: finding.detail || "No detail available.",
+    explanation: finding.explanation || "This item can affect the local security posture.",
+    recommended_action: recommendedAction,
+    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [recommendedAction]
   };
 }
 
@@ -666,13 +649,6 @@ function categoriesForResults(data) {
 
 function systemLabel(data) {
   return data.system_info?.OS || data.system_info?.System || "Unknown OS";
-}
-
-function osSupportLabel(supportedOs) {
-  if (!Array.isArray(supportedOs) || supportedOs.length === 0) {
-    return "Unsupported OS";
-  }
-  return `OS: ${supportedOs.join(", ")}`;
 }
 
 function statusText(data) {
