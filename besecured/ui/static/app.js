@@ -327,17 +327,19 @@ function renderIssueCard(finding) {
           <div class="issue-meta">
             <span class="pill status-pill">${statusLabel(finding.status)}</span>
             <span class="pill">${escapeHtml(finding.category)}</span>
+            <span class="pill">${escapeHtml(osSupportLabel(finding.supported_os))}</span>
+            <span class="pill">${finding.requires_admin ? "Admin required" : "No admin required"}</span>
           </div>
         </div>
       </div>
       <div class="issue-sections">
         <section class="issue-section">
           <h3>What we found</h3>
-          <p>${escapeHtml(finding.detail)}</p>
+          <p>${escapeHtml(finding.what_we_found)}</p>
         </section>
         <section class="issue-section">
           <h3>Why it matters</h3>
-          <p>${escapeHtml(finding.explanation)}</p>
+          <p>${escapeHtml(finding.why_it_matters)}</p>
         </section>
         <section class="issue-section">
           <h3>How to fix it</h3>
@@ -552,15 +554,32 @@ function normalizeScan(data) {
 function normalizeFinding(finding, index) {
   const status = String(finding.status || "").toUpperCase();
   const safeStatus = statusOrder[status] === undefined ? "INFO" : status;
-  const recommendedAction = finding.recommended_action || "Review if needed.";
+  const whatWeFound = finding.what_we_found || finding.detail || "No detail available.";
+  const whyItMatters = finding.why_it_matters || finding.explanation || "This item can affect the local security posture.";
+  const howToFix = finding.how_to_fix || finding.recommended_action || finding.remediation || "Review if needed.";
+  const supportedOs = Array.isArray(finding.supported_os)
+    ? finding.supported_os.filter(Boolean)
+    : finding.supported === false
+      ? []
+      : ["Windows", "Linux", "macOS"];
   return {
+    id: finding.id || `finding-${index}`,
     category: finding.category || "System",
     name: finding.name || `Security check ${index + 1}`,
+    title: finding.title || finding.name || `Security check ${index + 1}`,
     status: safeStatus,
-    detail: finding.detail || "No detail available.",
-    explanation: finding.explanation || "This item can affect the local security posture.",
-    recommended_action: recommendedAction,
-    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [recommendedAction]
+    severity: safeStatus,
+    severity_label: finding.severity_label || statusLabel(safeStatus),
+    detail: whatWeFound,
+    what_we_found: whatWeFound,
+    why_it_matters: whyItMatters,
+    explanation: whyItMatters,
+    how_to_fix: howToFix,
+    recommended_action: howToFix,
+    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [howToFix],
+    supported_os: supportedOs,
+    supported: supportedOs.length > 0,
+    requires_admin: Boolean(finding.requires_admin || finding.admin_required)
   };
 }
 
@@ -654,6 +673,13 @@ function systemLabel(data) {
   return data.system_info?.OS || data.system_info?.System || "Unknown OS";
 }
 
+function osSupportLabel(supportedOs) {
+  if (!Array.isArray(supportedOs) || supportedOs.length === 0) {
+    return "Unsupported OS";
+  }
+  return `OS: ${supportedOs.join(", ")}`;
+}
+
 function statusText(data) {
   if (data.overall_score >= 85) {
     return "Your device looks good";
@@ -733,8 +759,10 @@ function renderExportHtml(data) {
       <h2>${escapeHtml(finding.name)}</h2>
       <p><strong>Severity:</strong> ${escapeHtml(statusLabel(finding.status))}</p>
       <p><strong>Category:</strong> ${escapeHtml(finding.category)}</p>
-      <p><strong>What we found:</strong> ${escapeHtml(finding.detail)}</p>
-      <p><strong>Why it matters:</strong> ${escapeHtml(finding.explanation)}</p>
+      <p><strong>OS support:</strong> ${escapeHtml(osSupportLabel(finding.supported_os))}</p>
+      <p><strong>Admin:</strong> ${finding.requires_admin ? "Required" : "Not required"}</p>
+      <p><strong>What we found:</strong> ${escapeHtml(finding.what_we_found)}</p>
+      <p><strong>Why it matters:</strong> ${escapeHtml(finding.why_it_matters)}</p>
       <p><strong>How to fix it:</strong></p>
       <ul>${finding.fix_steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ul>
     </section>
