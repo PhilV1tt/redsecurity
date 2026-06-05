@@ -136,10 +136,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"BeSecured scan complete: grade {result.grade} ({result.overall_score}/100)")
     print(
         "Findings: "
-        f"{result.status_counts['OK']} OK, "
-        f"{result.status_counts['WARN']} WARN, "
         f"{result.status_counts['CRIT']} CRIT, "
+        f"{result.status_counts['WARN']} WARN, "
         f"{result.status_counts['INFO']} INFO, "
+        f"{result.status_counts['OK']} OK, "
         f"{result.status_counts['SKIP']} SKIP"
     )
     print(f"Report saved to: {output}")

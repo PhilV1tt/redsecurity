@@ -1,195 +1,372 @@
 {
-  "data_source": "mock",
-  "scanner_note": "Prototype data only. The UI has not run local OS checks.",
-  "os_name": "Windows 11 Pro",
-  "scan_time": "2026-06-05T09:42:00+02:00",
-  "score": 68,
-  "risk_level": "warning",
-  "summary": {
-    "critical": 1,
-    "warning": 4,
-    "passed": 5,
-    "info": 1,
-    "skipped": 1
+  "schema_version": "besecured.scan_result.v1",
+  "scan_source": "sample",
+  "generated_at": "2026-06-05T09:42:00+02:00",
+  "system_info": {
+    "Hostname": "sample-device",
+    "OS": "Windows 11 Pro"
   },
+  "status_counts": {
+    "CRIT": 1,
+    "WARN": 4,
+    "INFO": 1,
+    "OK": 5,
+    "SKIP": 1
+  },
+  "category_scores": {
+    "Accounts": 80,
+    "Network": 80,
+    "Protection": 30,
+    "System": 100,
+    "Updates": 60
+  },
+  "overall_score": 74,
+  "grade": "C",
+  "score_details": {
+    "score": 74,
+    "scored_findings": 10,
+    "lost_points": 13,
+    "max_points": 50,
+    "formula": "100 - round(lost_points / max_points * 100)",
+    "severity_weights": {
+      "OK": 0,
+      "WARN": 2,
+      "CRIT": 5
+    },
+    "scored_statuses": [
+      "CRIT",
+      "WARN",
+      "OK"
+    ],
+    "ignored_statuses": [
+      "INFO",
+      "SKIP"
+    ],
+    "status_impact": {
+      "CRIT": {
+        "count": 1,
+        "severity_points_each": 5,
+        "lost_points": 5
+      },
+      "WARN": {
+        "count": 4,
+        "severity_points_each": 2,
+        "lost_points": 8
+      },
+      "OK": {
+        "count": 5,
+        "severity_points_each": 0,
+        "lost_points": 0
+      }
+    },
+    "category_lost_points": {
+      "Accounts": 2,
+      "Network": 2,
+      "Protection": 7,
+      "System": 0,
+      "Updates": 2
+    },
+    "category_details": {
+      "Accounts": {
+        "category": "Accounts",
+        "score": 80,
+        "scored_findings": 2,
+        "lost_points": 2,
+        "max_points": 10,
+        "impacted_findings": [
+          {
+            "name": "Password policy is weak",
+            "status": "WARN",
+            "severity_points": 2
+          }
+        ]
+      },
+      "Network": {
+        "category": "Network",
+        "score": 80,
+        "scored_findings": 2,
+        "lost_points": 2,
+        "max_points": 10,
+        "impacted_findings": [
+          {
+            "name": "Remote Desktop appears exposed",
+            "status": "WARN",
+            "severity_points": 2
+          }
+        ]
+      },
+      "Protection": {
+        "category": "Protection",
+        "score": 30,
+        "scored_findings": 2,
+        "lost_points": 7,
+        "max_points": 10,
+        "impacted_findings": [
+          {
+            "name": "Firewall is off for public networks",
+            "status": "CRIT",
+            "severity_points": 5
+          },
+          {
+            "name": "Security signatures are out of date",
+            "status": "WARN",
+            "severity_points": 2
+          }
+        ]
+      },
+      "System": {
+        "category": "System",
+        "score": 100,
+        "scored_findings": 3,
+        "lost_points": 0,
+        "max_points": 15,
+        "impacted_findings": []
+      },
+      "Updates": {
+        "category": "Updates",
+        "score": 60,
+        "scored_findings": 1,
+        "lost_points": 2,
+        "max_points": 5,
+        "impacted_findings": [
+          {
+            "name": "System updates need attention",
+            "status": "WARN",
+            "severity_points": 2
+          }
+        ]
+      }
+    },
+    "finding_impacts": [
+      {
+        "category": "Protection",
+        "name": "Firewall is off for public networks",
+        "status": "CRIT",
+        "severity_points": 5,
+        "max_severity_points": 5,
+        "score_impact_percent": 10.0
+      },
+      {
+        "category": "Accounts",
+        "name": "Password policy is weak",
+        "status": "WARN",
+        "severity_points": 2,
+        "max_severity_points": 5,
+        "score_impact_percent": 4.0
+      },
+      {
+        "category": "Network",
+        "name": "Remote Desktop appears exposed",
+        "status": "WARN",
+        "severity_points": 2,
+        "max_severity_points": 5,
+        "score_impact_percent": 4.0
+      },
+      {
+        "category": "Protection",
+        "name": "Security signatures are out of date",
+        "status": "WARN",
+        "severity_points": 2,
+        "max_severity_points": 5,
+        "score_impact_percent": 4.0
+      },
+      {
+        "category": "Updates",
+        "name": "System updates need attention",
+        "status": "WARN",
+        "severity_points": 2,
+        "max_severity_points": 5,
+        "score_impact_percent": 4.0
+      },
+      {
+        "category": "Accounts",
+        "name": "Guest account is disabled",
+        "status": "OK",
+        "severity_points": 0,
+        "max_severity_points": 5,
+        "score_impact_percent": 0.0
+      },
+      {
+        "category": "Network",
+        "name": "Common web ports are closed",
+        "status": "OK",
+        "severity_points": 0,
+        "max_severity_points": 5,
+        "score_impact_percent": 0.0
+      },
+      {
+        "category": "System",
+        "name": "Disk encryption is detected",
+        "status": "OK",
+        "severity_points": 0,
+        "max_severity_points": 5,
+        "score_impact_percent": 0.0
+      },
+      {
+        "category": "System",
+        "name": "No suspicious TEMP startup entry",
+        "status": "OK",
+        "severity_points": 0,
+        "max_severity_points": 5,
+        "score_impact_percent": 0.0
+      },
+      {
+        "category": "System",
+        "name": "User Account Control is enabled",
+        "status": "OK",
+        "severity_points": 0,
+        "max_severity_points": 5,
+        "score_impact_percent": 0.0
+      }
+    ],
+    "calculation_steps": [
+      "10 scored check(s): only OK, WARN and CRIT affect the score.",
+      "Each scored check can lose up to 5 severity points.",
+      "Lost severity points: 13 out of 50.",
+      "Final score: 100 - round(lost_points / max_points * 100) = 74."
+    ],
+    "summary": "Medium score: 1 critical finding(s) have the highest weight. 5/10 scored checks passed. Formula: 100 - round(13/50 * 100) = 74.",
+    "factors": [
+      "Critical findings: 1 x 5 severity points.",
+      "Warnings: 4 x 2 severity points.",
+      "Passed checks: 5 x 0 severity points.",
+      "Main score impact: Protection (7), Accounts (2), Network (2).",
+      "INFO and SKIP findings are listed for context but are not scored."
+    ]
+  },
+  "scoring_note": "Medium score: 1 critical finding(s) have the highest weight. 5/10 scored checks passed. Formula: 100 - round(13/50 * 100) = 74.",
   "findings": [
     {
-      "id": "firewall-public-profile-off",
       "category": "Protection",
-      "title": "Firewall is off for public networks",
-      "severity": "critical",
+      "name": "Firewall is off for public networks",
       "status": "CRIT",
       "detail": "The sample result shows the public firewall profile disabled.",
-      "why_it_matters": "On public networks, an inactive firewall can expose services that should stay blocked.",
+      "explanation": "On public networks, an inactive firewall can expose services that should stay blocked.",
+      "recommended_action": "Turn the firewall on for public networks.",
       "fix_steps": [
-        "Open Windows Security.",
-        "Go to Firewall and network protection.",
         "Turn the firewall on for public networks."
-      ],
-      "supported": true,
-      "requires_admin": true
+      ]
     },
     {
-      "id": "remote-desktop-listening",
-      "category": "Network",
-      "title": "Remote Desktop appears exposed",
-      "severity": "warning",
-      "status": "WARN",
-      "detail": "The sample result shows TCP port 3389 listening on all local interfaces.",
-      "why_it_matters": "Remote Desktop should not be reachable unless it is required and protected.",
-      "fix_steps": [
-        "Turn off Remote Desktop if you do not use it.",
-        "If you need it, restrict it to trusted networks.",
-        "Use a strong password and keep Windows updated."
-      ],
-      "supported": true,
-      "requires_admin": false
-    },
-    {
-      "id": "old-defender-signatures",
-      "category": "Protection",
-      "title": "Security signatures are out of date",
-      "severity": "warning",
-      "status": "WARN",
-      "detail": "The sample result shows antivirus signatures last updated 11 days ago.",
-      "why_it_matters": "Old signatures can miss recent malware and suspicious files.",
-      "fix_steps": [
-        "Open Windows Security.",
-        "Go to Virus and threat protection.",
-        "Run a protection update."
-      ],
-      "supported": true,
-      "requires_admin": false
-    },
-    {
-      "id": "weak-password-age",
       "category": "Accounts",
-      "title": "Password policy is weak",
-      "severity": "warning",
+      "name": "Password policy is weak",
       "status": "WARN",
       "detail": "The sample result shows no maximum password age configured.",
-      "why_it_matters": "A weak password policy makes stale or reused passwords more likely.",
+      "explanation": "A weak password policy makes stale or reused passwords more likely.",
+      "recommended_action": "Review local password rules and use long unique passwords.",
       "fix_steps": [
-        "Review local password rules.",
-        "Use long passwords or passphrases.",
-        "Enable multi factor authentication where available."
-      ],
-      "supported": true,
-      "requires_admin": true
+        "Review local password rules and use long unique passwords."
+      ]
     },
     {
-      "id": "updates-older-than-month",
+      "category": "Network",
+      "name": "Remote Desktop appears exposed",
+      "status": "WARN",
+      "detail": "The sample result shows TCP port 3389 listening on all local interfaces.",
+      "explanation": "Remote Desktop should not be reachable unless it is required and protected.",
+      "recommended_action": "Turn off Remote Desktop if you do not use it, or restrict it to trusted networks.",
+      "fix_steps": [
+        "Turn off Remote Desktop if you do not use it, or restrict it to trusted networks."
+      ]
+    },
+    {
+      "category": "Protection",
+      "name": "Security signatures are out of date",
+      "status": "WARN",
+      "detail": "The sample result shows antivirus signatures last updated 11 days ago.",
+      "explanation": "Old signatures can miss recent malware and suspicious files.",
+      "recommended_action": "Run a protection update in Windows Security.",
+      "fix_steps": [
+        "Run a protection update in Windows Security."
+      ]
+    },
+    {
       "category": "Updates",
-      "title": "System updates need attention",
-      "severity": "warning",
+      "name": "System updates need attention",
       "status": "WARN",
       "detail": "The sample result shows the last successful update was 32 days ago.",
-      "why_it_matters": "Security updates close known vulnerabilities attackers often reuse.",
+      "explanation": "Security updates close known vulnerabilities attackers often reuse.",
+      "recommended_action": "Install pending security updates and restart if needed.",
       "fix_steps": [
-        "Open Settings.",
-        "Go to Windows Update.",
         "Install pending security updates and restart if needed."
-      ],
-      "supported": true,
-      "requires_admin": false
+      ]
     },
     {
-      "id": "guest-disabled",
-      "category": "Accounts",
-      "title": "Guest account is disabled",
-      "severity": "passed",
-      "status": "OK",
-      "detail": "The sample result shows no active Guest account.",
-      "why_it_matters": "Disabled guest access reduces casual access to the device.",
-      "fix_steps": [
-        "No action needed."
-      ],
-      "supported": true,
-      "requires_admin": false
-    },
-    {
-      "id": "uac-enabled",
       "category": "System",
-      "title": "User Account Control is enabled",
-      "severity": "passed",
-      "status": "OK",
-      "detail": "The sample result shows UAC enabled.",
-      "why_it_matters": "UAC helps stop unexpected changes from running with administrator rights.",
-      "fix_steps": [
-        "Keep UAC enabled."
-      ],
-      "supported": true,
-      "requires_admin": false
-    },
-    {
-      "id": "common-web-ports-closed",
-      "category": "Network",
-      "title": "Common web ports are closed",
-      "severity": "passed",
-      "status": "OK",
-      "detail": "The sample result shows ports 80 and 443 are not listening locally.",
-      "why_it_matters": "Closed unused ports reduce the machine surface visible on the network.",
-      "fix_steps": [
-        "No action needed."
-      ],
-      "supported": true,
-      "requires_admin": false
-    },
-    {
-      "id": "filevault-bitlocker-present",
-      "category": "System",
-      "title": "Disk encryption is detected",
-      "severity": "passed",
-      "status": "OK",
-      "detail": "The sample result shows device encryption enabled.",
-      "why_it_matters": "Disk encryption helps protect data if the device is lost or stolen.",
-      "fix_steps": [
-        "Keep your recovery key stored safely."
-      ],
-      "supported": true,
-      "requires_admin": false
-    },
-    {
-      "id": "startup-temp-clear",
-      "category": "System",
-      "title": "No suspicious TEMP startup entry",
-      "severity": "passed",
-      "status": "OK",
-      "detail": "The sample result shows no startup entry running from a temporary folder.",
-      "why_it_matters": "Malware often persists through startup entries in unusual locations.",
-      "fix_steps": [
-        "No action needed."
-      ],
-      "supported": true,
-      "requires_admin": false
-    },
-    {
-      "id": "scan-privileges",
-      "category": "System",
-      "title": "Some checks may need administrator access",
-      "severity": "info",
+      "name": "Some checks may need administrator access",
       "status": "INFO",
       "detail": "The sample result includes checks that would need elevated permissions in a real scan.",
-      "why_it_matters": "Limited permissions can hide some local account or policy details.",
+      "explanation": "Limited permissions can hide some local account or policy details.",
+      "recommended_action": "Run the final packaged scanner as administrator only if you trust it and need full local detail.",
       "fix_steps": [
         "Run the final packaged scanner as administrator only if you trust it and need full local detail."
-      ],
-      "supported": true,
-      "requires_admin": true
+      ]
     },
     {
-      "id": "enterprise-update-history",
+      "category": "Accounts",
+      "name": "Guest account is disabled",
+      "status": "OK",
+      "detail": "The sample result shows no active Guest account.",
+      "explanation": "Disabled guest access reduces casual access to the device.",
+      "recommended_action": "No action needed.",
+      "fix_steps": [
+        "No action needed."
+      ]
+    },
+    {
+      "category": "Network",
+      "name": "Common web ports are closed",
+      "status": "OK",
+      "detail": "The sample result shows ports 80 and 443 are not listening locally.",
+      "explanation": "Closed unused ports reduce the machine surface visible on the network.",
+      "recommended_action": "No action needed.",
+      "fix_steps": [
+        "No action needed."
+      ]
+    },
+    {
+      "category": "System",
+      "name": "Disk encryption is detected",
+      "status": "OK",
+      "detail": "The sample result shows device encryption enabled.",
+      "explanation": "Disk encryption helps protect data if the device is lost or stolen.",
+      "recommended_action": "Keep your recovery key stored safely.",
+      "fix_steps": [
+        "Keep your recovery key stored safely."
+      ]
+    },
+    {
+      "category": "System",
+      "name": "No suspicious TEMP startup entry",
+      "status": "OK",
+      "detail": "The sample result shows no startup entry running from a temporary folder.",
+      "explanation": "Malware often persists through startup entries in unusual locations.",
+      "recommended_action": "No action needed.",
+      "fix_steps": [
+        "No action needed."
+      ]
+    },
+    {
+      "category": "System",
+      "name": "User Account Control is enabled",
+      "status": "OK",
+      "detail": "The sample result shows UAC enabled.",
+      "explanation": "UAC helps stop unexpected changes from running with administrator rights.",
+      "recommended_action": "Keep UAC enabled.",
+      "fix_steps": [
+        "Keep UAC enabled."
+      ]
+    },
+    {
       "category": "Updates",
-      "title": "Enterprise update history was not available",
-      "severity": "skipped",
+      "name": "Enterprise update history was not available",
       "status": "SKIP",
       "detail": "The sample result marks this check as unsupported for the current prototype data.",
-      "why_it_matters": "Skipped checks are shown for transparency but do not change the score.",
+      "explanation": "Skipped checks are shown for transparency but do not change the score.",
+      "recommended_action": "No action needed in this UI prototype.",
       "fix_steps": [
         "No action needed in this UI prototype."
-      ],
-      "supported": false,
-      "requires_admin": true
+      ]
     }
   ]
 }

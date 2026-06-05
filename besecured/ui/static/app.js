@@ -1,11 +1,11 @@
 const scanCategories = ["Network", "System", "Accounts", "Protection", "Updates"];
-const severityOrder = { critical: 0, warning: 1, info: 2, passed: 3, skipped: 4 };
+const statusOrder = { CRIT: 0, WARN: 1, INFO: 2, OK: 3, SKIP: 4 };
 const statusColors = {
-  critical: "#c83333",
-  warning: "#b96a00",
-  passed: "#18834f",
-  info: "#2f6fb7",
-  skipped: "#728093"
+  CRIT: "#c83333",
+  WARN: "#b96a00",
+  OK: "#18834f",
+  INFO: "#2f6fb7",
+  SKIP: "#728093"
 };
 
 const state = {
@@ -114,12 +114,12 @@ function renderStart() {
         </div>
         <div class="status-metrics" aria-label="Current scanner state">
           <div><span>Last scan</span><strong>Not run</strong></div>
-          <div><span>Data source</span><strong>scan-results.json</strong></div>
-          <div><span>Scope</span><strong>UI preview only</strong></div>
+          <div><span>Data source</span><strong>Local scanner</strong></div>
+          <div><span>Scope</span><strong>This device</strong></div>
         </div>
         <div class="status-actions">
           <button class="primary-button" data-action="start-scan"><span class="button-icon">${icon("play")}</span>Start scan</button>
-          <span class="demo-note">${icon("alert")} Prototype: loads local sample results only.</span>
+          <span class="demo-note">${icon("alert")} Runs local checks only. No account, cloud service or upload.</span>
         </div>
       </div>
 
@@ -132,7 +132,7 @@ function renderStart() {
               <p>Network, system, accounts, protection and updates.</p>
             </div>
           </div>
-          <button class="secondary-button" data-action="start-scan"><span class="button-icon">${icon("play")}</span>Run preview</button>
+          <button class="secondary-button" data-action="start-scan"><span class="button-icon">${icon("play")}</span>Run scan</button>
         </article>
         <article class="module-card">
           <div class="module-header">
@@ -144,7 +144,7 @@ function renderStart() {
           </div>
           <ul class="compact-list">
             <li>${icon("check")}<span>Data stays on this device</span></li>
-            <li>${icon("check")}<span>Scanner bridge not wired yet</span></li>
+            <li>${icon("check")}<span>The UI calls the local scanner engine</span></li>
           </ul>
         </article>
         <article class="module-card">
@@ -167,9 +167,9 @@ function renderProgress() {
     <section class="progress-panel" aria-labelledby="progress-title">
       <div class="progress-header">
         <div>
-          <h1 id="progress-title">Loading local scan preview</h1>
+          <h1 id="progress-title">Running local scan</h1>
           <p>Current step: ${escapeHtml(current)}</p>
-          <div class="demo-note">${icon("alert")} Prototype mode: this progress view is simulated and reads <strong>scan-results.json</strong>.</div>
+          <div class="demo-note">${icon("alert")} The scanner is checking this machine through the local Python engine.</div>
         </div>
         <div class="progress-percent">${state.progressPercent}%</div>
       </div>
@@ -188,7 +188,7 @@ function renderProgressStep(category, index) {
   const isActive = index === state.progressIndex;
   const className = isDone ? "is-done" : isActive ? "is-active" : "";
   const label = isDone ? "Complete" : isActive ? "In progress" : "Waiting";
-  const detail = isDone ? "Sample result loaded" : isActive ? "Preparing category data" : "Queued";
+  const detail = isDone ? "Checked" : isActive ? "Running local checks" : "Queued";
   return `
     <div class="category-step ${className}">
       <span class="step-icon">${isDone ? icon("check") : icon("shield")}</span>
@@ -203,25 +203,26 @@ function renderProgressStep(category, index) {
 
 function renderResults() {
   const data = state.results;
-  const scoreColor = colorForScore(data.score);
+  const scoreColor = colorForScore(data.overall_score);
   return `
     <section class="results-grid" aria-labelledby="results-title">
       <div class="result-panel">
         <div class="result-status" style="--score-color:${scoreColor}">
           <div class="score-tile">
-            <strong>${data.score}</strong>
+            <strong>${data.overall_score}</strong>
             <span>Risk score</span>
           </div>
           <div class="results-heading">
             <h1 id="results-title">${statusText(data)}</h1>
             <p>${riskDescription(data)}</p>
-            ${mockNotice(data)}
+            ${sourceNotice(data)}
           </div>
         </div>
         <div class="summary-strip" aria-label="Summary counts">
-          <div class="summary-item is-critical"><strong>${data.summary.critical}</strong><span>Critical</span></div>
-          <div class="summary-item is-warning"><strong>${data.summary.warning}</strong><span>Warning</span></div>
-          <div class="summary-item is-passed"><strong>${data.summary.passed}</strong><span>Passed</span></div>
+          <div class="summary-item is-critical"><strong>${statusCount(data, "CRIT")}</strong><span>Critical</span></div>
+          <div class="summary-item is-warning"><strong>${statusCount(data, "WARN")}</strong><span>Warning</span></div>
+          <div class="summary-item is-info"><strong>${statusCount(data, "INFO")}</strong><span>Info</span></div>
+          <div class="summary-item is-passed"><strong>${statusCount(data, "OK")}</strong><span>OK</span></div>
         </div>
       </div>
       <aside class="side-panel" aria-label="Category summary">
@@ -239,12 +240,14 @@ function renderResults() {
 }
 
 function renderCategoryBars(data) {
-  const categories = scanCategories.map((category) => {
+  const categoryNames = categoriesForResults(data);
+  const categories = categoryNames.map((category) => {
     const categoryFindings = data.findings.filter((finding) => finding.category === category);
-    const bad = categoryFindings.filter((finding) => finding.severity === "critical" || finding.severity === "warning").length;
+    const bad = categoryFindings.filter((finding) => finding.status === "CRIT" || finding.status === "WARN").length;
     const total = Math.max(categoryFindings.length, 1);
-    const goodPercent = Math.round(((total - bad) / total) * 100);
-    return { category, bad, total, goodPercent };
+    const fallbackScore = Math.round(((total - bad) / total) * 100);
+    const score = data.category_scores[category] ?? fallbackScore;
+    return { category, bad, score };
   });
   return categories.map((item) => `
     <div class="category-bar">
@@ -253,7 +256,7 @@ function renderCategoryBars(data) {
         <span>${item.bad} to review</span>
       </div>
       <div class="bar-track">
-        <div class="bar-fill" style="width:${item.goodPercent}%"></div>
+        <div class="bar-fill" style="width:${item.score}%"></div>
       </div>
     </div>
   `).join("");
@@ -264,21 +267,21 @@ function renderIssues() {
     if (state.issueFilter === "all") {
       return true;
     }
-    return finding.severity === state.issueFilter;
+    return finding.status === state.issueFilter;
   });
   return `
     <section aria-labelledby="issues-title">
       <div class="issues-heading">
         <h1 id="issues-title">Issues by severity</h1>
-        <p>Critical and Warning items appear first, then Info and passed checks.</p>
+        <p>Critical and Warning items appear first, then Info and OK checks.</p>
       </div>
       <div class="issue-toolbar" aria-label="Issue filters">
         ${renderFilter("all", "All")}
-        ${renderFilter("critical", "Critical")}
-        ${renderFilter("warning", "Warning")}
-        ${renderFilter("info", "Info")}
-        ${renderFilter("passed", "Passed")}
-        ${renderFilter("skipped", "Skipped")}
+        ${renderFilter("CRIT", "Critical")}
+        ${renderFilter("WARN", "Warning")}
+        ${renderFilter("INFO", "Info")}
+        ${renderFilter("OK", "OK")}
+        ${renderFilter("SKIP", "Skipped")}
       </div>
       <div class="issue-list">
         ${filtered.length ? filtered.map(renderIssueCard).join("") : renderEmptyIssues()}
@@ -292,17 +295,15 @@ function renderFilter(value, label) {
 }
 
 function renderIssueCard(finding) {
-  const color = statusColors[finding.severity] || statusColors.info;
+  const color = statusColors[finding.status] || statusColors.INFO;
   return `
     <article class="issue-card" style="--status-color:${color}">
       <div class="issue-card-head">
         <div>
-          <h2 class="issue-title">${escapeHtml(finding.title)}</h2>
+          <h2 class="issue-title">${escapeHtml(finding.name)}</h2>
           <div class="issue-meta">
-            <span class="pill status-pill">${severityLabel(finding.severity)}</span>
+            <span class="pill status-pill">${statusLabel(finding.status)}</span>
             <span class="pill">${escapeHtml(finding.category)}</span>
-            ${finding.requires_admin ? '<span class="pill">Needs admin</span>' : ""}
-            ${finding.supported ? "" : '<span class="pill">Unsupported</span>'}
           </div>
         </div>
       </div>
@@ -313,7 +314,7 @@ function renderIssueCard(finding) {
         </section>
         <section class="issue-section">
           <h3>Why it matters</h3>
-          <p>${escapeHtml(finding.why_it_matters)}</p>
+          <p>${escapeHtml(finding.explanation)}</p>
         </section>
         <section class="issue-section">
           <h3>How to fix it</h3>
@@ -330,14 +331,14 @@ function renderEmptyIssues() {
   return `
     <div class="empty-panel">
       <h2>No findings in this filter</h2>
-      <p>Choose another severity to see the rest of the local sample results.</p>
+      <p>Choose another status to see the rest of the local scan results.</p>
     </div>
   `;
 }
 
 function renderReport() {
   const data = state.results;
-  const issueCount = data.summary.critical + data.summary.warning;
+  const issueCount = statusCount(data, "CRIT") + statusCount(data, "WARN");
   return `
     <section class="report-grid" aria-labelledby="report-title">
       <div class="report-panel">
@@ -346,11 +347,11 @@ function renderReport() {
           <p>Export a self contained HTML summary from the loaded scan data.</p>
         </div>
         <div class="report-details">
-          ${reportRow("Scan date", formatDate(data.scan_time))}
-          ${reportRow("Operating system", data.os_name)}
-          ${reportRow("Risk score", `${data.score} / 100`)}
+          ${reportRow("Scan date", formatDate(data.generated_at))}
+          ${reportRow("Operating system", systemLabel(data))}
+          ${reportRow("Risk score", `${data.overall_score} / 100`)}
           ${reportRow("Issues to review", String(issueCount))}
-          ${reportRow("Data source", data.data_source === "mock" ? "Local sample JSON" : "Scanner JSON")}
+          ${reportRow("Data source", data.scan_source === "sample" ? "Prototype sample JSON" : "Local scanner")}
         </div>
         <div class="report-actions" style="margin-top:20px">
           <button class="primary-button" data-action="export-report"><span class="button-icon">${icon("file")}</span>Export report</button>
@@ -362,7 +363,7 @@ function renderReport() {
         <ul class="privacy-list">
           <li>${icon("check")}<span>Report is generated in the browser from local data.</span></li>
           <li>${icon("check")}<span>No server upload is performed.</span></li>
-          <li>${icon("lock")}<span>Sample data can be replaced by scanner JSON later.</span></li>
+          <li>${icon("lock")}<span>The scan is started by the local Python server.</span></li>
         </ul>
       </aside>
     </section>
@@ -417,17 +418,21 @@ async function startScan() {
   state.progressPercent = 4;
   render();
 
-  let rawData;
-  try {
-    rawData = await loadScanResults();
-  } catch (error) {
-    state.error = "Could not load scan-results.json from the local UI folder.";
-    state.screen = "start";
-    render();
-    return;
-  }
+  let rawData = null;
+  let scanError = null;
+  let scanDone = false;
+  const scanRequest = runLocalScan()
+    .then((data) => {
+      rawData = data;
+    })
+    .catch((error) => {
+      scanError = error;
+    })
+    .finally(() => {
+      scanDone = true;
+    });
 
-  for (let index = 0; index < scanCategories.length; index += 1) {
+  for (let index = 0; index < scanCategories.length && !scanDone; index += 1) {
     state.progressIndex = index;
     state.progressPercent = Math.round(((index + 0.25) / scanCategories.length) * 100);
     render();
@@ -437,160 +442,188 @@ async function startScan() {
     await wait(180);
   }
 
-  state.results = normalizeScan(rawData);
+  while (!scanDone) {
+    state.progressIndex = scanCategories.length - 1;
+    state.progressPercent = Math.min(92, state.progressPercent + 3);
+    render();
+    await wait(450);
+  }
+
+  await scanRequest;
+
+  if (scanError || rawData === null) {
+    state.error = scanError?.message || "The local scan did not return data.";
+    state.screen = "start";
+    render();
+    return;
+  }
+
+  try {
+    state.results = normalizeScan(rawData);
+  } catch (error) {
+    state.error = error.message || "The scanner response does not match the BeSecured JSON contract.";
+    state.screen = "start";
+    render();
+    return;
+  }
+
   state.screen = "results";
   state.progressIndex = scanCategories.length;
   state.progressPercent = 100;
   render();
 }
 
-async function loadScanResults() {
-  const response = await fetch("scan-results.json", { cache: "no-store" });
+async function runLocalScan() {
+  const response = await fetch("/api/scan", {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    cache: "no-store"
+  });
   if (!response.ok) {
-    throw new Error("scan-results.json unavailable");
+    let detail = "";
+    try {
+      const payload = await response.json();
+      detail = payload.detail || payload.error || "";
+    } catch {
+      detail = "";
+    }
+    throw new Error(detail || "Could not run the local scan. Start the UI with python -m besecured.ui.");
   }
   return response.json();
 }
 
 function normalizeScan(data) {
+  requireContractKeys(data, ["schema_version", "scan_source", "generated_at", "system_info", "status_counts", "category_scores", "overall_score", "grade", "score_details", "scoring_note", "findings"]);
   const findings = Array.isArray(data.findings) ? data.findings.map(normalizeFinding) : [];
-  const summary = normalizeSummary(data, findings);
-  const score = clampScore(data.score ?? data.overall_score ?? 0);
   return {
-    data_source: data.data_source || "scanner",
-    scanner_note: data.scanner_note || "",
-    os_name: data.os_name || data.system_info?.OS || "Unknown OS",
-    scan_time: data.scan_time || data.generated_at || new Date().toISOString(),
-    score,
-    risk_level: data.risk_level || riskFromScore(score),
-    summary,
+    schema_version: data.schema_version,
+    scan_source: data.scan_source,
+    generated_at: data.generated_at,
+    system_info: data.system_info || {},
+    status_counts: normalizeStatusCounts(data.status_counts, findings),
+    category_scores: normalizeCategoryScores(data.category_scores),
+    overall_score: clampScore(data.overall_score),
+    grade: data.grade || "",
+    score_details: data.score_details || {},
+    scoring_note: data.scoring_note || "",
     findings: sortedFindings(findings)
   };
 }
 
 function normalizeFinding(finding, index) {
   const status = String(finding.status || "").toUpperCase();
-  const severity = finding.severity || severityFromStatus(status);
-  const remediation = finding.remediation ? [finding.remediation] : [];
+  const safeStatus = statusOrder[status] === undefined ? "INFO" : status;
+  const recommendedAction = finding.recommended_action || "Review if needed.";
   return {
-    id: finding.id || `finding-${index}`,
     category: finding.category || "System",
-    title: finding.title || finding.name || "Security check",
-    severity,
-    status: status || statusFromSeverity(severity),
+    name: finding.name || `Security check ${index + 1}`,
+    status: safeStatus,
     detail: finding.detail || "No detail available.",
-    why_it_matters: finding.why_it_matters || finding.remediation || "This item can affect the local security posture.",
-    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : remediation.length ? remediation : ["No action needed."],
-    supported: typeof finding.supported === "boolean" ? finding.supported : status !== "SKIP",
-    requires_admin: Boolean(finding.requires_admin)
+    explanation: finding.explanation || "This item can affect the local security posture.",
+    recommended_action: recommendedAction,
+    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [recommendedAction]
   };
 }
 
-function normalizeSummary(data, findings) {
-  const fromData = data.summary || {};
-  const statusCounts = data.status_counts || {};
+function requireContractKeys(data, keys) {
+  const missing = keys.filter((key) => data[key] === undefined);
+  if (missing.length) {
+    throw new Error(`ScanResult JSON missing key(s): ${missing.join(", ")}`);
+  }
+}
+
+function normalizeStatusCounts(statusCounts, findings) {
   return {
-    critical: Number(fromData.critical ?? statusCounts.CRIT ?? countSeverity(findings, "critical")),
-    warning: Number(fromData.warning ?? statusCounts.WARN ?? countSeverity(findings, "warning")),
-    passed: Number(fromData.passed ?? statusCounts.OK ?? countSeverity(findings, "passed")),
-    info: Number(fromData.info ?? statusCounts.INFO ?? countSeverity(findings, "info")),
-    skipped: Number(fromData.skipped ?? statusCounts.SKIP ?? countSeverity(findings, "skipped"))
+    CRIT: Number(statusCounts?.CRIT ?? countStatus(findings, "CRIT")),
+    WARN: Number(statusCounts?.WARN ?? countStatus(findings, "WARN")),
+    INFO: Number(statusCounts?.INFO ?? countStatus(findings, "INFO")),
+    OK: Number(statusCounts?.OK ?? countStatus(findings, "OK")),
+    SKIP: Number(statusCounts?.SKIP ?? countStatus(findings, "SKIP"))
   };
+}
+
+function normalizeCategoryScores(categoryScores) {
+  return Object.fromEntries(
+    Object.entries(categoryScores || {}).map(([category, score]) => [
+      category,
+      score === null ? null : clampScore(score)
+    ])
+  );
 }
 
 function sortedFindings(findings) {
   return [...findings].sort((a, b) => {
-    const rank = (severityOrder[a.severity] ?? 9) - (severityOrder[b.severity] ?? 9);
+    const rank = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
     if (rank !== 0) {
       return rank;
     }
-    return a.title.localeCompare(b.title);
+    return a.name.localeCompare(b.name);
   });
 }
 
-function countSeverity(findings, severity) {
-  return findings.filter((finding) => finding.severity === severity).length;
+function countStatus(findings, status) {
+  return findings.filter((finding) => finding.status === status).length;
 }
 
-function severityFromStatus(status) {
-  if (status === "CRIT") {
-    return "critical";
-  }
-  if (status === "WARN") {
-    return "warning";
-  }
-  if (status === "OK") {
-    return "passed";
-  }
-  if (status === "SKIP") {
-    return "skipped";
-  }
-  return "info";
+function statusCount(data, status) {
+  return Number(data.status_counts?.[status] ?? 0);
 }
 
-function statusFromSeverity(severity) {
+function statusLabel(status) {
   return {
-    critical: "CRIT",
-    warning: "WARN",
-    passed: "OK",
-    skipped: "SKIP",
-    info: "INFO"
-  }[severity] || "INFO";
+    CRIT: "Critical",
+    WARN: "Warning",
+    OK: "OK",
+    INFO: "Info",
+    SKIP: "Skipped"
+  }[status] || "Info";
 }
 
-function severityLabel(severity) {
-  return {
-    critical: "Critical",
-    warning: "Warning",
-    passed: "OK",
-    info: "Info",
-    skipped: "Skipped"
-  }[severity] || "Info";
+function categoriesForResults(data) {
+  const categories = Object.keys(data.category_scores || {});
+  if (categories.length) {
+    return categories;
+  }
+  return [...new Set(data.findings.map((finding) => finding.category))].sort();
 }
 
-function riskFromScore(score) {
-  if (score >= 85) {
-    return "good";
-  }
-  if (score >= 60) {
-    return "warning";
-  }
-  return "high";
+function systemLabel(data) {
+  return data.system_info?.OS || data.system_info?.System || "Unknown OS";
 }
 
 function statusText(data) {
-  if (data.score >= 85 || data.risk_level === "good") {
+  if (data.overall_score >= 85) {
     return "Your device looks good";
   }
-  if (data.score >= 60 || data.risk_level === "warning") {
+  if (data.overall_score >= 60) {
     return "Some issues need attention";
   }
   return "High risk, fix these first";
 }
 
 function riskDescription(data) {
-  const issueCount = data.summary.critical + data.summary.warning;
+  const issueCount = statusCount(data, "CRIT") + statusCount(data, "WARN");
   if (issueCount === 0) {
     return "Passed checks dominate this local sample report.";
   }
   return `${issueCount} issue${issueCount === 1 ? "" : "s"} should be reviewed before this device is considered clean.`;
 }
 
-function mockNotice(data) {
-  if (data.data_source !== "mock") {
-    return '<div class="local-note">' + icon("lock") + " Loaded from scanner JSON.</div>";
+function sourceNotice(data) {
+  if (data.scan_source !== "sample") {
+    return '<div class="local-note">' + icon("lock") + " Real local scan completed.</div>";
   }
-  return '<div class="demo-note">' + icon("alert") + " Mock data: the UI has not executed real system checks.</div>";
+  return '<div class="demo-note">' + icon("alert") + " Prototype sample data.</div>";
 }
 
 function colorForScore(score) {
   if (score >= 85) {
-    return statusColors.passed;
+    return statusColors.OK;
   }
   if (score >= 60) {
-    return statusColors.warning;
+    return statusColors.WARN;
   }
-  return statusColors.critical;
+  return statusColors.CRIT;
 }
 
 function clampScore(value) {
@@ -621,7 +654,7 @@ function exportReport() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `BeSecured-report-${state.results.scan_time.slice(0, 10)}.html`;
+  anchor.download = `BeSecured-report-${state.results.generated_at.slice(0, 10)}.html`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
@@ -631,12 +664,13 @@ function exportReport() {
 }
 
 function renderExportHtml(data) {
+  const issueCount = statusCount(data, "CRIT") + statusCount(data, "WARN");
   const issues = sortedFindings(data.findings).map((finding) => `
     <section>
-      <h2>${escapeHtml(finding.title)}</h2>
-      <p><strong>Status:</strong> ${escapeHtml(severityLabel(finding.severity))}</p>
+      <h2>${escapeHtml(finding.name)}</h2>
+      <p><strong>Status:</strong> ${escapeHtml(statusLabel(finding.status))}</p>
       <p><strong>What we found:</strong> ${escapeHtml(finding.detail)}</p>
-      <p><strong>Why it matters:</strong> ${escapeHtml(finding.why_it_matters)}</p>
+      <p><strong>Why it matters:</strong> ${escapeHtml(finding.explanation)}</p>
       <p><strong>How to fix it:</strong></p>
       <ul>${finding.fix_steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ul>
     </section>
@@ -658,10 +692,10 @@ function renderExportHtml(data) {
   <main>
     <header>
       <h1>BeSecured Report</h1>
-      <p>Scan date: ${escapeHtml(formatDate(data.scan_time))}</p>
-      <p>Operating system: ${escapeHtml(data.os_name)}</p>
-      <p>Score: ${data.score} / 100</p>
-      <p>Issues to review: ${data.summary.critical + data.summary.warning}</p>
+      <p>Scan date: ${escapeHtml(formatDate(data.generated_at))}</p>
+      <p>Operating system: ${escapeHtml(systemLabel(data))}</p>
+      <p>Score: ${data.overall_score} / 100</p>
+      <p>Issues to review: ${issueCount}</p>
     </header>
     ${issues}
   </main>

@@ -21,7 +21,11 @@ def run_macos_checks() -> list[Finding]:
     findings.extend(check_startup_programs())
     findings.extend(check_antimalware())
     findings.extend(check_privilege_model())
-    return findings
+    return _macos_findings(findings)
+
+
+def _macos_findings(findings: list[Finding]) -> list[Finding]:
+    return [finding.with_context(supported_os=("macOS",)) for finding in findings]
 
 
 def check_firewall() -> list[Finding]:

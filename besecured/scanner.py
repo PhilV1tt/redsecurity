@@ -32,6 +32,7 @@ def run_scan() -> ScanResult:
                 "SKIP",
                 f"{system or 'Unknown'} is not supported yet. Only common checks were run.",
                 "Run BeSecured on Windows, Linux or macOS for the full scanner.",
+                supported_os=("Windows", "Linux", "macOS"),
             )
         )
 

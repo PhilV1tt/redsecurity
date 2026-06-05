@@ -8,10 +8,10 @@ from .models import Finding, ScanResult
 
 
 STATUS_META = {
-    "OK": ("Pass", "#15803d"),
-    "WARN": ("Warning", "#b45309"),
     "CRIT": ("Critical", "#b91c1c"),
+    "WARN": ("Warning", "#b45309"),
     "INFO": ("Info", "#2563eb"),
+    "OK": ("OK", "#15803d"),
     "SKIP": ("Skipped", "#64748b"),
 }
 
@@ -31,16 +31,18 @@ def render_html(result: ScanResult) -> str:
     generated = _escape(result.generated_at.strftime("%Y-%m-%d %H:%M:%S %Z"))
     counts = result.status_counts
     score_details = result.score_details or {}
-    category_lost_points = score_details.get("category_lost_points", {})
-    if not isinstance(category_lost_points, dict):
-        category_lost_points = {}
+    category_details = score_details.get("category_details", {})
+    if not isinstance(category_details, dict):
+        category_details = {}
     category_rows = "\n".join(
-        _category_row(name, score, int(category_lost_points.get(name, 0)))
+        _category_row(name, score, category_details.get(name, {}))
         for name, score in result.category_scores.items()
     )
     finding_rows = "\n".join(_finding_row(finding) for finding in result.sorted_findings())
     factor_items = _score_factor_items(score_details)
+    calculation_items = _calculation_items(score_details)
     score_model_rows = _score_model_rows(score_details)
+    finding_impact_rows = _finding_impact_rows(score_details)
     system_rows = "\n".join(
         f"<tr><th>{_escape(key)}</th><td>{_escape(value)}</td></tr>"
         for key, value in result.system_info.items()
@@ -93,13 +95,13 @@ def render_html(result: ScanResult) -> str:
     h3 {{ font-size: .9rem; margin: 14px 0 8px; }}
     .subtle {{ color: var(--muted); font-size: .92rem; }}
     .score-note {{ margin-top: 0; }}
-    .factors {{
+    .factors, .calculation {{
       margin: 10px 0 0;
       padding-left: 18px;
       color: var(--muted);
       font-size: .9rem;
     }}
-    .factors li {{ margin: 5px 0; }}
+    .factors li, .calculation li {{ margin: 5px 0; }}
     .score {{
       width: 132px;
       height: 132px;
@@ -178,6 +180,7 @@ def render_html(result: ScanResult) -> str:
     }}
     .not-scored {{ color: var(--muted); }}
     .score-impact {{ color: var(--muted); font-size: .8rem; margin: 4px 0; }}
+    .impact-detail {{ color: var(--muted); font-size: .78rem; margin-top: 4px; }}
     .findings td:nth-child(1) {{ white-space: nowrap; color: #0f766e; font-weight: 650; }}
     .findings td:nth-child(3) {{ width: 92px; }}
     footer {{
@@ -222,21 +225,25 @@ def render_html(result: ScanResult) -> str:
       <section>
         <h2>Summary</h2>
         <div class="stats">
-          {_stat("OK", counts.get("OK", 0))}
-          {_stat("WARN", counts.get("WARN", 0))}
           {_stat("CRIT", counts.get("CRIT", 0))}
+          {_stat("WARN", counts.get("WARN", 0))}
           {_stat("INFO", counts.get("INFO", 0))}
+          {_stat("OK", counts.get("OK", 0))}
           {_stat("SKIP", counts.get("SKIP", 0))}
         </div>
       </section>
       <section>
         <h2>Scoring</h2>
         <p class="subtle score-note">{_escape(result.scoring_note)}</p>
+        <h3>Calculation</h3>
+        <ol class="calculation">{calculation_items}</ol>
         <ul class="factors">{factor_items}</ul>
         <h3>Weight Model</h3>
         <table>{score_model_rows}</table>
-        <h3>Category Scores</h3>
+        <h3>Category Impact</h3>
         <table>{category_rows}</table>
+        <h3>Finding Impact</h3>
+        <table>{finding_impact_rows}</table>
       </section>
       <section>
         <h2>System Info</h2>
@@ -245,15 +252,18 @@ def render_html(result: ScanResult) -> str:
     </div>
 
     <section style="margin-top: 14px;">
-      <h2>Detailed Findings</h2>
+      <h2>Detailed Findings by Severity</h2>
       <table class="findings">
         <thead>
           <tr>
             <th>Category</th>
             <th>Check</th>
-            <th>Status</th>
-            <th>Detail</th>
-            <th>Recommended Fix</th>
+            <th>Severity</th>
+            <th>OS support</th>
+            <th>Admin</th>
+            <th>What we found</th>
+            <th>Why it matters</th>
+            <th>How to fix it</th>
           </tr>
         </thead>
         <tbody>
@@ -273,14 +283,27 @@ def _stat(status: str, count: int) -> str:
     return f"<div class='stat'><strong style='color:{color}'>{count}</strong><span>{label}</span></div>"
 
 
-def _category_row(name: str, score: int | None, lost_points: int) -> str:
+def _category_row(name: str, score: int | None, detail: object) -> str:
     if score is None:
         value = "<span class='not-scored'>Not scored</span>"
         bar = ""
     else:
+        detail_dict = detail if isinstance(detail, dict) else {}
+        lost_points = int(detail_dict.get("lost_points", 0))
+        max_points = int(detail_dict.get("max_points", 0))
+        impacted = detail_dict.get("impacted_findings", [])
+        impacted_names = []
+        if isinstance(impacted, list):
+            impacted_names = [
+                str(item.get("name"))
+                for item in impacted
+                if isinstance(item, dict) and item.get("name")
+            ]
+        impacted_text = ", ".join(impacted_names) if impacted_names else "No warning or critical item."
         value = f"{score}%"
-        impact = f"<div class='score-impact'>Severity points lost: {lost_points}</div>"
-        bar = f"{impact}<div class='bar'><span style='width:{score}%'></span></div>"
+        impact = f"<div class='score-impact'>Severity points lost: {lost_points}/{max_points}</div>"
+        detail_line = f"<div class='impact-detail'>Impacting checks: {_escape(impacted_text)}</div>"
+        bar = f"{impact}{detail_line}<div class='bar'><span style='width:{score}%'></span></div>"
     return f"<tr><th>{_escape(name)}</th><td>{value}{bar}</td></tr>"
 
 
@@ -291,15 +314,23 @@ def _score_factor_items(score_details: dict[str, object]) -> str:
     return "".join(f"<li>{_escape(factor)}</li>" for factor in factors)
 
 
+def _calculation_items(score_details: dict[str, object]) -> str:
+    steps = score_details.get("calculation_steps")
+    if not isinstance(steps, list) or not steps:
+        steps = ["Score = 100 - round(lost_points / max_points * 100)."]
+    return "".join(f"<li>{_escape(step)}</li>" for step in steps)
+
+
 def _score_model_rows(score_details: dict[str, object]) -> str:
     weights = score_details.get("severity_weights")
     if not isinstance(weights, dict):
         weights = {"OK": 0, "WARN": 2, "CRIT": 5}
     rows = [
-        ("OK", weights.get("OK", 0), "Passed check. No points lost."),
-        ("WARN", weights.get("WARN", 2), "Weakness to fix. Medium impact."),
         ("CRIT", weights.get("CRIT", 5), "High risk issue. Maximum impact."),
-        ("INFO / SKIP", 0, "Shown in the report but ignored by the score."),
+        ("WARN", weights.get("WARN", 2), "Weakness to fix. Medium impact."),
+        ("INFO", 0, "Shown for context but ignored by the score."),
+        ("OK", weights.get("OK", 0), "Passed check. No points lost."),
+        ("SKIP", 0, "Unsupported or unavailable check. Ignored by the score."),
     ]
     return "".join(
         f"<tr><th>{_escape(status)}</th><td>{_escape(weight)} severity point(s)</td><td>{_escape(note)}</td></tr>"
@@ -307,18 +338,53 @@ def _score_model_rows(score_details: dict[str, object]) -> str:
     )
 
 
+def _finding_impact_rows(score_details: dict[str, object]) -> str:
+    impacts = score_details.get("finding_impacts")
+    if not isinstance(impacts, list) or not impacts:
+        return "<tr><td colspan='4'><span class='not-scored'>No scored finding impact available.</span></td></tr>"
+
+    rows = []
+    for item in impacts:
+        if not isinstance(item, dict):
+            continue
+        points = int(item.get("severity_points", 0))
+        if points <= 0:
+            continue
+        rows.append(
+            "<tr>"
+            f"<th>{_escape(item.get('category', ''))}</th>"
+            f"<td>{_escape(item.get('name', ''))}</td>"
+            f"<td>{_escape(item.get('status', ''))}</td>"
+            f"<td>{points} point(s), {_escape(item.get('score_impact_percent', 0))}% of the score scale</td>"
+            "</tr>"
+        )
+    if not rows:
+        return "<tr><td colspan='4'><span class='not-scored'>No warning or critical finding removed points.</span></td></tr>"
+    return "".join(rows)
+
+
 def _finding_row(finding: Finding) -> str:
     label, color = STATUS_META[finding.status]
-    remediation = finding.remediation or "No action required."
     return (
         "<tr>"
         f"<td>{_escape(finding.category)}</td>"
         f"<td>{_escape(finding.name)}</td>"
         f"<td><span class='status' style='background:{color}'>{_escape(label)}</span></td>"
-        f"<td>{_escape(finding.detail)}</td>"
-        f"<td>{_escape(remediation)}</td>"
+        f"<td>{_escape(_os_support_text(finding))}</td>"
+        f"<td>{_escape(_admin_text(finding))}</td>"
+        f"<td>{_escape(finding.what_we_found)}</td>"
+        f"<td>{_escape(finding.why_it_matters)}</td>"
+        f"<td>{_escape(finding.how_to_fix)}</td>"
         "</tr>"
     )
+
+
+def _os_support_text(finding: Finding) -> str:
+    return ", ".join(finding.supported_os) if finding.supported_os else "Unsupported"
+
+
+def _admin_text(finding: Finding) -> str:
+    return "Required" if finding.requires_admin else "Not required"
 
 
 def _escape(value: object) -> str:

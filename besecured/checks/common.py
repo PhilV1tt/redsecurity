@@ -109,13 +109,23 @@ def collect_system_info(admin: bool) -> dict[str, str]:
     }
 
 
-def unavailable_finding(category: str, name: str, reason: str, remediation: str) -> Finding:
+def unavailable_finding(
+    category: str,
+    name: str,
+    reason: str,
+    remediation: str,
+    *,
+    supported_os: Iterable[str] | None = None,
+    requires_admin: bool | None = None,
+) -> Finding:
     return Finding(
         category,
         name,
         "SKIP",
         f"Check not available: {reason}",
         remediation,
+        supported_os=tuple(supported_os) if supported_os is not None else ("Windows", "Linux", "macOS"),
+        requires_admin=_mentions_admin_need(reason, remediation) if requires_admin is None else requires_admin,
     )
 
 
@@ -141,6 +151,20 @@ def check_privilege_level(admin: bool) -> Finding:
         "Scanner is running as a standard user.",
         "Some protected checks may be skipped. Re-run elevated only if those details are needed.",
     )
+
+
+def _mentions_admin_need(*texts: str) -> bool:
+    combined = " ".join(texts).lower()
+    markers = (
+        "administrator",
+        "admin",
+        "elevated",
+        "privilege",
+        "privileges",
+        "root",
+        "sudo",
+    )
+    return any(marker in combined for marker in markers)
 
 
 def _cpu_name() -> str:
@@ -261,6 +285,7 @@ def check_open_ports() -> list[Finding]:
                 "WARN",
                 f"Could not inspect listening ports: {exc}",
                 "Run the scanner with higher privileges or inspect listening services manually.",
+                requires_admin=True,
             )
         ]
 

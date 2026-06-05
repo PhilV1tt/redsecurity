@@ -21,7 +21,11 @@ def run_linux_checks() -> list[Finding]:
     findings.extend(check_startup_programs())
     findings.extend(check_antivirus())
     findings.extend(check_privilege_model())
-    return findings
+    return _linux_findings(findings)
+
+
+def _linux_findings(findings: list[Finding]) -> list[Finding]:
+    return [finding.with_context(supported_os=("Linux",)) for finding in findings]
 
 
 def check_firewall() -> list[Finding]:
@@ -180,6 +184,7 @@ def check_users() -> list[Finding]:
                 "CRIT" if passwordless else "OK",
                 f"Accounts with empty password field: {', '.join(passwordless)}" if passwordless else "No empty password fields detected in /etc/shadow.",
                 "Lock or set passwords for accounts with empty password fields.",
+                requires_admin=True,
             )
         )
     else:
@@ -190,6 +195,7 @@ def check_users() -> list[Finding]:
                 "SKIP",
                 "Cannot read /etc/shadow without elevated privileges.",
                 "Run with appropriate privileges or ask an administrator to verify passwordless accounts.",
+                requires_admin=True,
             )
         )
     return findings

@@ -5,8 +5,12 @@ from dataclasses import dataclass
 
 from .models import ACTIONABLE_STATUSES, Finding
 
+STATUS_DISPLAY_ORDER = ("CRIT", "WARN", "INFO", "OK", "SKIP")
+SCORED_STATUSES = ("CRIT", "WARN", "OK")
+IGNORED_STATUSES = ("INFO", "SKIP")
 SEVERITY_WEIGHTS = {"OK": 0, "WARN": 2, "CRIT": 5}
 MAX_SEVERITY_WEIGHT = SEVERITY_WEIGHTS["CRIT"]
+SCORE_FORMULA = "100 - round(lost_points / max_points * 100)"
 
 
 @dataclass(frozen=True)
@@ -15,8 +19,13 @@ class ScoreBreakdown:
     scored_findings: int
     lost_points: int
     max_points: int
+    formula: str
     severity_weights: dict[str, int]
+    status_impact: dict[str, dict[str, int]]
     category_lost_points: dict[str, int]
+    category_details: dict[str, dict[str, object]]
+    finding_impacts: list[dict[str, object]]
+    calculation_steps: list[str]
     summary: str
     factors: list[str]
 
@@ -26,8 +35,15 @@ class ScoreBreakdown:
             "scored_findings": self.scored_findings,
             "lost_points": self.lost_points,
             "max_points": self.max_points,
+            "formula": self.formula,
             "severity_weights": self.severity_weights,
+            "scored_statuses": list(SCORED_STATUSES),
+            "ignored_statuses": list(IGNORED_STATUSES),
+            "status_impact": self.status_impact,
             "category_lost_points": self.category_lost_points,
+            "category_details": self.category_details,
+            "finding_impacts": self.finding_impacts,
+            "calculation_steps": self.calculation_steps,
             "summary": self.summary,
             "factors": self.factors,
         }
@@ -35,7 +51,7 @@ class ScoreBreakdown:
 
 def count_statuses(findings: list[Finding]) -> dict[str, int]:
     counts = Counter(finding.status for finding in findings)
-    return {status: counts.get(status, 0) for status in ["OK", "WARN", "CRIT", "INFO", "SKIP"]}
+    return {status: counts.get(status, 0) for status in STATUS_DISPLAY_ORDER}
 
 
 def score_findings(findings: list[Finding]) -> int:
@@ -50,8 +66,16 @@ def score_breakdown(findings: list[Finding]) -> ScoreBreakdown:
             scored_findings=0,
             lost_points=0,
             max_points=0,
+            formula=SCORE_FORMULA,
             severity_weights=SEVERITY_WEIGHTS.copy(),
+            status_impact=_status_impact(Counter()),
             category_lost_points={},
+            category_details={},
+            finding_impacts=[],
+            calculation_steps=[
+                "No OK, WARN or CRIT checks ran.",
+                "INFO and SKIP findings are visible but ignored by the score.",
+            ],
             summary="No scored checks ran, so BeSecured cannot rate this machine yet.",
             factors=["INFO and SKIP findings are shown in the report but do not change the score."],
         )
@@ -59,19 +83,32 @@ def score_breakdown(findings: list[Finding]) -> ScoreBreakdown:
     counts = Counter(finding.status for finding in actionable)
     max_points = len(actionable) * MAX_SEVERITY_WEIGHT
     lost_points = sum(SEVERITY_WEIGHTS[finding.status] for finding in actionable)
-    raw_score = 100 - round((lost_points / max_points) * 100)
-    score = max(0, min(100, raw_score))
+    score = _score_from_points(lost_points, max_points)
     category_lost_points: dict[str, int] = defaultdict(int)
+    grouped: dict[str, list[Finding]] = defaultdict(list)
     for finding in actionable:
         category_lost_points[finding.category] += SEVERITY_WEIGHTS[finding.status]
+        grouped[finding.category].append(finding)
+
+    sorted_category_lost_points = dict(sorted(category_lost_points.items()))
+    category_details = {
+        category: _category_detail(category, category_findings)
+        for category, category_findings in sorted(grouped.items())
+    }
+    finding_impacts = _finding_impacts(actionable, max_points)
 
     return ScoreBreakdown(
         score=score,
         scored_findings=len(actionable),
         lost_points=lost_points,
         max_points=max_points,
+        formula=SCORE_FORMULA,
         severity_weights=SEVERITY_WEIGHTS.copy(),
-        category_lost_points=dict(sorted(category_lost_points.items())),
+        status_impact=_status_impact(counts),
+        category_lost_points=sorted_category_lost_points,
+        category_details=category_details,
+        finding_impacts=finding_impacts,
+        calculation_steps=_calculation_steps(len(actionable), lost_points, max_points, score),
         summary=_score_summary(score, counts, lost_points, max_points, len(actionable)),
         factors=_score_factors(counts, category_lost_points),
     )
@@ -89,6 +126,72 @@ def category_scores(findings: list[Finding]) -> dict[str, int | None]:
         else:
             scores[category] = None
     return scores
+
+
+def _score_from_points(lost_points: int, max_points: int) -> int:
+    if max_points <= 0:
+        return 0
+    raw_score = 100 - round((lost_points / max_points) * 100)
+    return max(0, min(100, raw_score))
+
+
+def _status_impact(counts: Counter[str]) -> dict[str, dict[str, int]]:
+    return {
+        status: {
+            "count": counts.get(status, 0),
+            "severity_points_each": SEVERITY_WEIGHTS[status],
+            "lost_points": counts.get(status, 0) * SEVERITY_WEIGHTS[status],
+        }
+        for status in SCORED_STATUSES
+    }
+
+
+def _category_detail(category: str, findings: list[Finding]) -> dict[str, object]:
+    lost_points = sum(SEVERITY_WEIGHTS[finding.status] for finding in findings)
+    max_points = len(findings) * MAX_SEVERITY_WEIGHT
+    impacted = [
+        {
+            "name": finding.name,
+            "status": finding.status,
+            "severity_points": SEVERITY_WEIGHTS[finding.status],
+        }
+        for finding in findings
+        if SEVERITY_WEIGHTS[finding.status] > 0
+    ]
+    return {
+        "category": category,
+        "score": _score_from_points(lost_points, max_points),
+        "scored_findings": len(findings),
+        "lost_points": lost_points,
+        "max_points": max_points,
+        "impacted_findings": impacted,
+    }
+
+
+def _finding_impacts(findings: list[Finding], max_points: int) -> list[dict[str, object]]:
+    impacts = []
+    for finding in sorted(findings, key=lambda item: item.sort_key()):
+        severity_points = SEVERITY_WEIGHTS[finding.status]
+        impacts.append(
+            {
+                "category": finding.category,
+                "name": finding.name,
+                "status": finding.status,
+                "severity_points": severity_points,
+                "max_severity_points": MAX_SEVERITY_WEIGHT,
+                "score_impact_percent": round((severity_points / max_points) * 100, 1),
+            }
+        )
+    return impacts
+
+
+def _calculation_steps(total: int, lost_points: int, max_points: int, score: int) -> list[str]:
+    return [
+        f"{total} scored check(s): only OK, WARN and CRIT affect the score.",
+        f"Each scored check can lose up to {MAX_SEVERITY_WEIGHT} severity points.",
+        f"Lost severity points: {lost_points} out of {max_points}.",
+        f"Final score: {SCORE_FORMULA} = {score}.",
+    ]
 
 
 def _score_summary(score: int, counts: Counter[str], lost_points: int, max_points: int, total: int) -> str:

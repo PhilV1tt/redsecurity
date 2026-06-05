@@ -20,7 +20,11 @@ def run_windows_checks() -> list[Finding]:
     findings.extend(check_startup_programs())
     findings.extend(check_antivirus())
     findings.extend(check_uac())
-    return findings
+    return _windows_findings(findings)
+
+
+def _windows_findings(findings: list[Finding]) -> list[Finding]:
+    return [finding.with_context(supported_os=("Windows",)) for finding in findings]
 
 
 def check_firewall() -> list[Finding]:
@@ -121,7 +125,16 @@ def check_users() -> list[Finding]:
     """
     data = _powershell_json(script)
     if data is None:
-        return [Finding(category, "User Audit", "WARN", "Could not audit Windows local users.", "Run the scanner as Administrator or review local users manually.")]
+        return [
+            Finding(
+                category,
+                "User Audit",
+                "WARN",
+                "Could not audit Windows local users.",
+                "Run the scanner as Administrator or review local users manually.",
+                requires_admin=True,
+            )
+        ]
     return _windows_user_findings_from_payload(data)
 
 
@@ -436,6 +449,7 @@ def _windows_user_findings_from_payload(data) -> list[Finding]:
                 "OK" if len(admin_names) <= 2 else "WARN",
                 f"{len(admin_names)} administrator principal(s): {', '.join(admin_names)}",
                 "Keep only the accounts and groups that truly need administrator rights.",
+                requires_admin=True,
             )
         ]
     else:
@@ -456,6 +470,7 @@ def _windows_user_findings_from_payload(data) -> list[Finding]:
             "CRIT" if guest_enabled else "OK",
             "Guest account is enabled." if guest_enabled else "Guest account is disabled.",
             "Disable the Guest account unless there is a documented need.",
+            requires_admin=True,
         )
     )
 
@@ -467,6 +482,7 @@ def _windows_user_findings_from_payload(data) -> list[Finding]:
             "CRIT" if no_password else "OK",
             f"Accounts without required password: {', '.join(no_password)}" if no_password else "All enabled accounts require a password.",
             "Require passwords for every enabled local account.",
+            requires_admin=True,
         )
     )
     return findings
