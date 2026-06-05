@@ -1,106 +1,222 @@
 # BeSecured
 
-<p align="center">
-  <img src="docs/coucou-reda.svg" alt="Coucou Reda" width="760">
-</p>
+BeSecured est un scanner local de posture cybersécurité pour le projet P12 Personal Cybersecurity Risk Scanner.
 
-BeSecured est un prototype d’interface locale pour lancer un diagnostic cybersécurité simple.
+L’objectif est simple : aider un utilisateur non technique à comprendre les faiblesses courantes de sa machine, avec un score lisible, des constats classés par gravité et des conseils de correction concrets.
 
-Le but pour la démo : ouvrir l’UI dans le navigateur, lancer le scan local, afficher le score, les catégories, les alertes et le rapport.
+BeSecured est un outil d’awareness. Ce n’est pas un outil de pentest, pas un antivirus, pas un système de monitoring continu et pas un service cloud.
 
-Tout tourne sur la machine. Pas de compte, pas de cloud, pas d’upload.
+## Installation
 
-## Lancer l’interface
+Prérequis :
 
-Il faut Python 3.10 ou plus.
+- Python 3.10 ou plus
+- Windows, macOS ou Linux
+- Un terminal local
 
-Sur Windows, installe Python depuis :
+Sur Windows, installer Python depuis `www.python.org/downloads`, puis cocher `Add Python to PATH`.
 
-```text
-www.python.org/downloads
+Cloner ou dézipper le projet, puis se placer à la racine du repo.
+
+Installation optionnelle en mode editable :
+
+```bash
+python -m pip install -e .
 ```
 
-Pendant l’installation, coche `Add Python to PATH`.
+Si la commande `python` n’existe pas sur macOS ou Linux, utiliser `python3`.
 
-Ensuite, dézippe le projet, ouvre un terminal dans le dossier BeSecured, puis lance :
+## Usage UI locale
 
-```powershell
+Lancer l’interface locale :
+
+```bash
 python -m besecured.ui
 ```
 
-Si Windows ne trouve pas `python`, utilise :
+Sur Windows, si nécessaire :
 
 ```powershell
 py -m besecured.ui
 ```
 
-Sur macOS ou Linux :
-
-```bash
-python3 -m besecured.ui
-```
-
-Une page locale doit s’ouvrir dans le navigateur.
-
-Si rien ne s’ouvre, copie l’adresse affichée dans le terminal. Elle ressemble à ça :
-
-```text
-127.0.0.1:53921
-```
-
-Pour arrêter l’interface, retourne dans le terminal et fais `Ctrl+C`.
-
-## Ce que Reda doit tester
+Le serveur ouvre une page locale dans le navigateur. Si rien ne s’ouvre, copier l’adresse affichée dans le terminal, par exemple `127.0.0.1:53921`.
 
 Dans l’interface :
 
-1. Clique sur `Start scan`.
-2. Attends la fin de la progression.
-3. Regarde le score de risque.
-4. Ouvre l’onglet `Issues`.
-5. Ouvre l’onglet `Report`.
-6. Vérifie que l’export du rapport est visible.
+1. Cliquer sur `Start scan`.
+2. Attendre la fin du scan.
+3. Lire le score et les catégories.
+4. Ouvrir `Issues` pour les détails.
+5. Ouvrir `Report` pour exporter un rapport HTML.
 
-Le bouton `Start scan` appelle le moteur local Python via le serveur UI. Le fichier `scan-results.json` reste seulement un échantillon de prototype.
+Pour arrêter l’interface, revenir au terminal et faire `Ctrl+C`.
 
-## Ce que l’app montre
+## Usage CLI
 
-BeSecured présente :
-
-- un score de sécurité sur 100
-- des catégories comme réseau, système, comptes, protection et mises à jour
-- des problèmes classés par gravité
-- des explications simples
-- un rapport local exportable
-
-## Calcul du score
-
-Le score est volontairement simple et explicable. Il n’utilise pas de ML.
-
-Seuls les contrôles `OK`, `WARN` et `CRIT` comptent dans le score. Les contrôles `INFO` et `SKIP` sont affichés pour la transparence, mais ils ne retirent pas de points.
-
-Poids utilisés :
-
-- `OK` : 0 point perdu
-- `WARN` : 2 points perdus
-- `CRIT` : 5 points perdus
-
-Formule :
-
-```text
-score = 100 - round(points_perdus / points_max * 100)
-```
-
-Chaque contrôle scoré peut perdre au maximum 5 points de gravité. Exemple : 10 contrôles scorés donnent `points_max = 50`. Si les findings retirent 13 points, le score est `100 - round(13 / 50 * 100) = 74`.
-
-Le rapport affiche aussi les catégories qui impactent le score, les points perdus par catégorie, les poids de gravité et les findings responsables.
-
-Ce n’est pas un outil de pentest. L’app ne force rien, ne modifie rien et ne récupère pas les données de Reda.
-
-## Lancer le moteur sans UI
-
-Le moteur local peut aussi tourner en ligne de commande.
+Lancer un scan et générer un rapport HTML local :
 
 ```bash
 python -m besecured
 ```
+
+Générer un JSON :
+
+```bash
+python -m besecured --format json --output BeSecured_Report.json
+```
+
+Générer HTML plus JSON :
+
+```bash
+python -m besecured --json-output BeSecured_Report.json
+```
+
+Par défaut, BeSecured écrit les rapports dans un dossier local d’application, pas dans un dossier cloud synchronisé.
+
+## Plateformes
+
+| Plateforme | Statut | Notes |
+|---|---|---|
+| Windows | support principal | Firewall, Defender, UAC, comptes locaux, partages, updates, BitLocker selon disponibilité |
+| macOS | support partiel | Firewall, FileVault, Gatekeeper, SIP, XProtect, users, sharing, launch items |
+| Linux | support partiel | Firewall courant, updates package manager, users, sudo, shares, startup, LUKS selon outils disponibles |
+
+Quand un check n’est pas disponible ou demande plus de privilèges, il est marqué `SKIP` ou `INFO` au lieu de faire semblant de réussir.
+
+## Checks
+
+BeSecured lance des checks non intrusifs :
+
+- ports TCP en écoute et services risqués comme RDP, SMB, SSH, VNC, bases de données
+- firewall local
+- fraîcheur des mises à jour système
+- comptes administrateur et comptes invités
+- règles de mot de passe quand elles sont lisibles
+- dossiers partagés SMB, NFS ou équivalent OS
+- programmes de démarrage et chemins suspects
+- antivirus ou protections natives disponibles
+- chiffrement disque
+- UAC sur Windows, Gatekeeper et SIP sur macOS
+
+Les checks lisent l’état local. Ils ne lancent pas d’exploitation, ne forcent pas de connexion et ne modifient pas la machine.
+
+## Scoring
+
+Le score va de 0 à 100.
+
+Seuls les statuts `OK`, `WARN` et `CRIT` changent le score.
+
+| Statut | Poids |
+|---|---:|
+| OK | 0 point perdu |
+| WARN | 2 points perdus |
+| CRIT | 5 points perdus |
+| INFO | ignoré |
+| SKIP | ignoré |
+
+Formule :
+
+```text
+score = 100 - round(lost_points / max_points * 100)
+```
+
+Le rapport affiche aussi les points perdus par catégorie et les checks qui impactent le plus le score.
+
+Grades :
+
+| Score | Grade |
+|---:|---|
+| 90 à 100 | A |
+| 75 à 89 | B |
+| 60 à 74 | C |
+| 40 à 59 | D |
+| 0 à 39 | F |
+
+## Privacy
+
+BeSecured est local first :
+
+- pas de compte
+- pas de backend externe
+- pas d’API cloud
+- pas d’upload de fichiers, credentials ou détails système
+- rapport HTML et JSON générés localement
+
+Le serveur UI écoute sur `127.0.0.1`. Il sert l’interface et expose seulement un endpoint local de scan.
+
+## Limites
+
+BeSecured ne remplace pas un audit sécurité professionnel.
+
+Limites assumées :
+
+- pas de pentest
+- pas de scan réseau agressif
+- pas de bruteforce
+- pas d’exploitation
+- pas de remédiation automatique
+- pas de monitoring continu
+- pas de garantie que tous les antivirus ou outils EDR soient détectés
+- certains checks dépendent des commandes disponibles et des droits utilisateur
+
+Le but est de donner une lecture claire du risque local, pas de prouver qu’une machine est sûre.
+
+## Architecture
+
+```text
+Local UI or CLI
+  -> Python scanner engine
+  -> OS specific checks
+  -> Risk scoring
+  -> HTML or JSON report
+```
+
+Structure principale :
+
+| Chemin | Rôle |
+|---|---|
+| `besecured/scanner.py` | orchestre le scan |
+| `besecured/checks/common.py` | checks communs et helpers |
+| `besecured/checks/windows.py` | checks Windows |
+| `besecured/checks/macos.py` | checks macOS |
+| `besecured/checks/linux.py` | checks Linux |
+| `besecured/models.py` | objets `Finding` et `ScanResult` |
+| `besecured/scoring.py` | score, grade, détails de calcul |
+| `besecured/report.py` | export HTML et JSON |
+| `besecured/ui/` | serveur local et interface navigateur |
+| `tests/` | tests unitaires et contrat UI |
+| `legacy/` | documents école et anciens scripts PowerShell |
+
+## Tests
+
+Lancer les tests :
+
+```bash
+python -m unittest discover -s tests
+```
+
+La suite couvre :
+
+- parsers Windows, macOS, Linux et réseau
+- scoring
+- export report
+- contrat JSON UI
+- endpoint local `/api/scan`
+- absence de dépendances distantes dans les sources sensibles
+
+## Legacy
+
+Les documents école initiaux et les scripts PowerShell MVP sont conservés dans `legacy/`.
+
+Ils restent utiles pour comprendre l’historique du projet, mais la base actuelle est le moteur Python multi OS avec UI locale.
+
+## Rendu
+
+Livrables prêts dans le repo :
+
+- code Python et UI locale
+- README complet
+- rapport projet dans `docs/rapport-projet.md`
+- trame de présentation dans `docs/presentation.md`
+- anciens livrables école rangés dans `legacy/`
