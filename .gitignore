@@ -5,6 +5,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .playwright-cli/
+.playwright-mcp/
 output/playwright/
 .venv/
 venv/

@@ -1,18 +1,59 @@
-const scanCategories = ["Network", "System", "Accounts", "Protection", "Updates"];
-const statusOrder = { CRIT: 0, WARN: 1, INFO: 2, OK: 3, SKIP: 4 };
-const statusColors = {
-  CRIT: "#c83333",
-  WARN: "#b96a00",
-  OK: "#18834f",
-  INFO: "#2f6fb7",
-  SKIP: "#728093"
+const SCAN_CATEGORIES = [
+  "Network",
+  "Open Ports",
+  "Firewall",
+  "Antivirus",
+  "Disk Encryption",
+  "Accounts",
+  "Protection",
+  "Execution Context",
+  "System",
+  "Updates"
+];
+
+const CATEGORY_FR = {
+  Accounts: "Comptes",
+  Antivirus: "Antivirus",
+  "Disk Encryption": "Chiffrement disque",
+  "Execution Context": "Contexte d'exécution",
+  Firewall: "Pare-feu",
+  Network: "Réseau",
+  "Open Ports": "Ports ouverts",
+  "Password Policy": "Politique de mot de passe",
+  "Privilege Elevation": "Élévation de privilèges",
+  Protection: "Protection",
+  "Shared Folders": "Dossiers partagés",
+  "Startup Programs": "Programmes au démarrage",
+  System: "Système",
+  Updates: "Mises à jour",
+  "User Accounts": "Comptes utilisateur"
 };
+
+const STATUS_FR = {
+  CRIT: "Critique",
+  WARN: "Avertissement",
+  INFO: "Info",
+  OK: "Conforme",
+  SKIP: "Ignoré"
+};
+
+const STATUS_ORDER = { CRIT: 0, WARN: 1, INFO: 2, OK: 3, SKIP: 4 };
+const STATUS_CLASS = { CRIT: "crit", WARN: "warn", INFO: "info", OK: "ok", SKIP: "skip" };
+
+const NAV = [
+  { key: "summary", label: "Aperçu" },
+  { key: "categories", label: "Catégories" },
+  { key: "findings", label: "Points à corriger" },
+  { key: "report", label: "Rapport" }
+];
 
 const state = {
   screen: "start",
-  issueFilter: "all",
+  view: "summary",
+  filter: "all",
   progressIndex: 0,
   progressPercent: 0,
+  scanLabel: "",
   results: null,
   error: "",
   exported: false
@@ -20,431 +61,370 @@ const state = {
 
 const app = document.getElementById("app");
 
-function icon(name) {
-  const paths = {
-    shield: '<path d="M12 3l7 3v5c0 4.2-2.8 7.4-7 9-4.2-1.6-7-4.8-7-9V6l7-3z"></path><path d="M9.5 12l1.7 1.7 3.8-4"></path>',
-    play: '<path d="M8 5v14l11-7L8 5z"></path>',
-    check: '<path d="M20 6L9 17l-5-5"></path>',
-    lock: '<rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V8a4 4 0 0 1 8 0v2"></path>',
-    refresh: '<path d="M20 12a8 8 0 0 1-14.9 4"></path><path d="M4 16v5h5"></path><path d="M4 12A8 8 0 0 1 18.9 8"></path><path d="M20 8V3h-5"></path>',
-    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M8 13h8"></path><path d="M8 17h5"></path>',
-    alert: '<path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 4.4 2.8 17.2A2 2 0 0 0 4.5 20h15a2 2 0 0 0 1.7-2.8L13.7 4.4a2 2 0 0 0-3.4 0z"></path>',
-    arrow: '<path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path>'
-  };
-  return `<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.shield}</svg>`;
-}
-
 function render() {
   app.innerHTML = `
-    <div class="product-shell">
-      ${renderTopbar()}
-      ${renderTabs()}
-      <main class="main-area">
-        ${renderScreen()}
-      </main>
+    <div class="layout">
+      ${renderSidebar()}
+      <main class="main">${renderMain()}</main>
     </div>
   `;
   bindEvents();
 }
 
-function renderTopbar() {
-  const hasResults = Boolean(state.results);
+function renderSidebar() {
+  const data = state.results;
+  const machine = readMachine(data);
+  const navHTML = NAV.map((item) => {
+    const disabled = !data ? "disabled" : "";
+    const count = item.key === "findings" && data ? actionableCount(data) : "";
+    const current = state.screen === "results" && state.view === item.key ? 'aria-current="page"' : "";
+    return `
+      <li>
+        <button class="nav-item" data-view="${item.key}" ${disabled} ${current}>
+          <span>${item.label}</span>
+          ${count !== "" ? `<span class="nav-count">${count}</span>` : ""}
+        </button>
+      </li>
+    `;
+  }).join("");
+
   return `
-    <header class="topbar">
+    <aside class="sidebar">
       <div class="brand">
-        <span class="brand-mark">${icon("shield")}</span>
-        <span>
-          <span class="brand-title">BeSecured</span>
-          <span class="brand-subtitle">Local cybersecurity risk scanner</span>
-        </span>
+        <span class="brand-name">BeSecured</span>
+        <span class="brand-sub">Posture cyber, scan local</span>
       </div>
-      <div class="top-actions">
-        ${hasResults ? '<button class="ghost-button" data-action="start-scan"><span class="button-icon">' + icon("refresh") + '</span>Run again</button>' : ""}
+      <dl class="machine">
+        <div><span>Hôte</span><strong>${escapeHtml(machine.host)}</strong></div>
+        <div><span>Système</span><strong>${escapeHtml(machine.os)}</strong></div>
+        <div><span>Portée</span><strong>cet appareil</strong></div>
+      </dl>
+      <div class="divider"></div>
+      <ul class="nav">${navHTML}</ul>
+      <div class="divider"></div>
+      <div class="note">
+        <p>Aucun compte, aucun envoi.</p>
+        <p>Le scan reste sur la machine.</p>
       </div>
-    </header>
+    </aside>
   `;
 }
 
-function renderTabs() {
-  if (!state.results) {
-    return "";
-  }
-  const tabs = [
-    ["results", "Results"],
-    ["issues", "Issues"],
-    ["report", "Report"]
-  ];
-  return `
-    <nav class="view-tabs" aria-label="Scan views">
-      ${tabs.map(([screen, label]) => `<button class="tab-button" data-screen="${screen}" aria-selected="${state.screen === screen}">${label}</button>`).join("")}
-    </nav>
-  `;
-}
-
-function renderScreen() {
-  if (state.error) {
-    return renderError();
-  }
-  if (state.screen === "progress") {
-    return renderProgress();
-  }
-  if (state.screen === "results" && state.results) {
-    return renderResults();
-  }
-  if (state.screen === "issues" && state.results) {
-    return renderIssues();
-  }
-  if (state.screen === "report" && state.results) {
-    return renderReport();
-  }
+function renderMain() {
+  if (state.error) return renderError();
+  if (state.screen === "scan") return renderScan();
+  if (state.screen === "results" && state.results) return renderResults();
   return renderStart();
 }
 
 function renderStart() {
   return `
-    <section class="utility-grid" aria-labelledby="start-title">
-      <div class="status-panel">
-        <div class="status-head">
-          <span class="status-dot is-ready"></span>
-          <div class="status-copy">
-            <span class="screen-label">Device status</span>
-            <h1 id="start-title">Ready to check</h1>
-            <p>No scan has been run in this UI session.</p>
-          </div>
-        </div>
-        <div class="status-metrics" aria-label="Current scanner state">
-          <div><span>Last scan</span><strong>Not run</strong></div>
-          <div><span>Data source</span><strong>Local scanner</strong></div>
-          <div><span>Scope</span><strong>This device</strong></div>
-        </div>
-        <div class="status-actions">
-          <button class="primary-button" data-action="start-scan"><span class="button-icon">${icon("play")}</span>Start scan</button>
-          <span class="demo-note">${icon("alert")} Runs local checks only. No account, cloud service or upload.</span>
-        </div>
+    <section>
+      <span class="eyebrow">Présentation</span>
+      <h1 class="title">Vérifier la posture de cet appareil</h1>
+      <p class="lede">BeSecured lit l'état local de la machine, mesure les points faibles courants et propose des corrections. Tout reste sur 127.0.0.1, aucune donnée ne sort.</p>
+
+      <div class="actions">
+        <button class="cta" data-action="start">Lancer le scan</button>
       </div>
 
-      <div class="module-stack" aria-label="Scanner modules">
-        <article class="module-card">
-          <div class="module-header">
-            <span class="module-icon">${icon("shield")}</span>
-            <div>
-              <h2>Scanner</h2>
-              <p>Network, system, accounts, protection and updates.</p>
-            </div>
-          </div>
-          <button class="secondary-button" data-action="start-scan"><span class="button-icon">${icon("play")}</span>Run scan</button>
-        </article>
-        <article class="module-card">
-          <div class="module-header">
-            <span class="module-icon">${icon("lock")}</span>
-            <div>
-              <h2>Privacy</h2>
-              <p>Local report flow, no account, no upload, no cloud service.</p>
-            </div>
-          </div>
-          <ul class="compact-list">
-            <li>${icon("check")}<span>Data stays on this device</span></li>
-            <li>${icon("check")}<span>The UI calls the local scanner engine</span></li>
-          </ul>
-        </article>
-        <article class="module-card">
-          <div class="module-header">
-            <span class="module-icon">${icon("file")}</span>
-            <div>
-              <h2>Report</h2>
-              <p>After a scan, export a self contained HTML summary.</p>
-            </div>
-          </div>
-        </article>
-      </div>
+      <h2 class="section-title">Ce qui sera vérifié</h2>
+      <ol class="scan-list">
+        ${SCAN_CATEGORIES.map((category, index) => `
+          <li class="scan-row">
+            <span class="idx">${pad(index + 1)}</span>
+            <span>${escapeHtml(catLabel(category))}</span>
+            <span class="state">en attente</span>
+          </li>
+        `).join("")}
+      </ol>
     </section>
   `;
 }
 
-function renderProgress() {
-  const current = scanCategories[Math.min(state.progressIndex, scanCategories.length - 1)];
+function renderScan() {
   return `
-    <section class="progress-panel" aria-labelledby="progress-title">
-      <div class="progress-header">
-        <div>
-          <h1 id="progress-title">Running local scan</h1>
-          <p>Current step: ${escapeHtml(current)}</p>
-          <div class="demo-note">${icon("alert")} The scanner is checking this machine through the local Python engine.</div>
-        </div>
-        <div class="progress-percent">${state.progressPercent}%</div>
-      </div>
-      <div class="progress-track" aria-label="Scan progress">
-        <div class="progress-fill" style="width:${state.progressPercent}%"></div>
-      </div>
-      <div class="category-list">
-        ${scanCategories.map((category, index) => renderProgressStep(category, index)).join("")}
-      </div>
-    </section>
-  `;
-}
+    <section>
+      <span class="eyebrow">Scan en cours</span>
+      <h1 class="title">Lecture des réglages locaux</h1>
+      <p class="lede">${escapeHtml(state.scanLabel || "Acquisition des données système.")}</p>
 
-function renderProgressStep(category, index) {
-  const isDone = index < state.progressIndex;
-  const isActive = index === state.progressIndex;
-  const className = isDone ? "is-done" : isActive ? "is-active" : "";
-  const label = isDone ? "Complete" : isActive ? "In progress" : "Waiting";
-  const detail = isDone ? "Checked" : isActive ? "Running local checks" : "Queued";
-  return `
-    <div class="category-step ${className}">
-      <span class="step-icon">${isDone ? icon("check") : icon("shield")}</span>
-      <span>
-        <span class="step-title">${escapeHtml(category)}</span>
-        <span class="step-detail">${detail}</span>
-      </span>
-      <span class="step-state">${label}</span>
-    </div>
+      <div class="scan-progress" aria-label="Progression du scan">
+        <div class="scan-progress-fill" style="width:${state.progressPercent}%"></div>
+      </div>
+
+      <ol class="scan-list">
+        ${SCAN_CATEGORIES.map((category, index) => {
+          const cls = index < state.progressIndex ? "done" : index === state.progressIndex ? "active" : "";
+          const stateText = index < state.progressIndex ? "ok" : index === state.progressIndex ? "en cours" : "en attente";
+          return `
+            <li class="scan-row ${cls}">
+              <span class="idx">${pad(index + 1)}</span>
+              <span>${escapeHtml(catLabel(category))}</span>
+              <span class="state">${stateText}</span>
+            </li>
+          `;
+        }).join("")}
+      </ol>
+    </section>
   `;
 }
 
 function renderResults() {
+  if (state.view === "categories") return renderCategoriesView();
+  if (state.view === "findings") return renderFindingsView();
+  if (state.view === "report") return renderReportView();
+  return renderSummaryView();
+}
+
+function renderSummaryView() {
   const data = state.results;
-  const scoreColor = colorForScore(data.overall_score);
-  return `
-    <section class="results-grid" aria-labelledby="results-title">
-      <div class="result-panel">
-        <div class="result-status" style="--score-color:${scoreColor}">
-          <div class="score-tile">
-            <strong>${data.overall_score}</strong>
-            <span>Risk score</span>
-          </div>
-          <div class="results-heading">
-            <h1 id="results-title">${statusText(data)}</h1>
-            <p>${riskDescription(data)}</p>
-            ${sourceNotice(data)}
-          </div>
-        </div>
-        <div class="summary-strip" aria-label="Summary counts">
-          <div class="summary-item is-critical"><strong>${statusCount(data, "CRIT")}</strong><span>Critical</span></div>
-          <div class="summary-item is-warning"><strong>${statusCount(data, "WARN")}</strong><span>Warning</span></div>
-          <div class="summary-item is-info"><strong>${statusCount(data, "INFO")}</strong><span>Info</span></div>
-          <div class="summary-item is-passed"><strong>${statusCount(data, "OK")}</strong><span>OK</span></div>
-          <div class="summary-item is-skipped"><strong>${statusCount(data, "SKIP")}</strong><span>Skipped</span></div>
-        </div>
-        <div class="score-explain">
-          <h2>Score calculation</h2>
-          <p>${escapeHtml(scoreSummary(data))}</p>
-          <div class="weight-row">
-            ${renderWeight("CRIT", data)}
-            ${renderWeight("WARN", data)}
-            ${renderWeight("OK", data)}
-          </div>
-          <ul class="score-steps">
-            ${scoreSteps(data).map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
-          </ul>
-        </div>
-      </div>
-      <aside class="side-panel" aria-label="Category summary">
-        <h2>Category impact</h2>
-        <div class="category-bars">
-          ${renderCategoryBars(data)}
-        </div>
-        <div class="button-row" style="margin-top:22px">
-          <button class="secondary-button" data-screen="issues"><span class="button-icon">${icon("alert")}</span>View issues</button>
-          <button class="secondary-button" data-screen="report"><span class="button-icon">${icon("file")}</span>Report</button>
-        </div>
-      </aside>
-    </section>
-  `;
-}
+  const score = data.overall_score;
+  const grade = data.grade || "";
+  const ringClass = colorClassForScore(score);
+  const ringCirc = 2 * Math.PI * 50;
+  const offset = ringCirc * (1 - score / 100);
+  const summaryText = scoreHeadline(score);
 
-function renderCategoryBars(data) {
-  const categoryNames = categoriesForResults(data);
-  const categories = categoryNames.map((category) => {
-    const categoryFindings = data.findings.filter((finding) => finding.category === category);
-    const bad = categoryFindings.filter((finding) => finding.status === "CRIT" || finding.status === "WARN").length;
-    const total = Math.max(categoryFindings.length, 1);
-    const fallbackScore = Math.round(((total - bad) / total) * 100);
-    const rawScore = data.category_scores[category];
-    const isScored = rawScore !== null && rawScore !== undefined;
-    const score = isScored ? rawScore : fallbackScore;
-    const detail = data.score_details?.category_details?.[category] || {};
-    return {
-      category,
-      bad,
-      score: isScored ? score : 0,
-      label: isScored ? `${bad} to review, ${Number(detail.lost_points ?? 0)}/${Number(detail.max_points ?? 0)} pts lost` : "Not scored",
-      lostPoints: Number(detail.lost_points ?? 0),
-      maxPoints: Number(detail.max_points ?? 0)
-    };
-  });
-  return categories.map((item) => `
-    <div class="category-bar">
-      <div class="bar-head">
-        <strong>${escapeHtml(item.category)}</strong>
-        <span>${escapeHtml(item.label)}</span>
-      </div>
-      <div class="bar-track">
-        <div class="bar-fill" style="width:${item.score}%"></div>
-      </div>
-    </div>
-  `).join("");
-}
-
-function renderIssues() {
-  const filtered = sortedFindings(state.results.findings).filter((finding) => {
-    if (state.issueFilter === "all") {
-      return true;
-    }
-    return finding.status === state.issueFilter;
-  });
   return `
-    <section aria-labelledby="issues-title">
-      <div class="issues-heading">
-        <h1 id="issues-title">Issues by severity</h1>
-        <p>Critical and Warning items appear first, then Info and OK checks.</p>
+    <section>
+      <span class="eyebrow">Aperçu</span>
+      <h1 class="title">${escapeHtml(summaryText)}</h1>
+      <p class="lede">${escapeHtml(scoreDescription(data))}</p>
+
+      <div class="score-block">
+        <svg class="score-ring" viewBox="0 0 120 120" aria-label="Score ${score} sur 100">
+          <circle class="score-ring-track" cx="60" cy="60" r="50" fill="none" stroke-width="6"></circle>
+          <circle class="score-ring-value ${ringClass}" cx="60" cy="60" r="50" fill="none" stroke-width="6"
+            stroke-linecap="butt"
+            stroke-dasharray="${ringCirc.toFixed(2)}"
+            stroke-dashoffset="${offset.toFixed(2)}"
+            transform="rotate(-90 60 60)"></circle>
+          <text class="score-figure score-figure-number" x="60" y="62">${score}</text>
+          <text class="score-figure score-figure-out" x="60" y="80">/ 100</text>
+        </svg>
+        <div class="score-side">
+          <span class="eyebrow">Grade</span>
+          <p class="score-grade">${escapeHtml(grade || "non noté")}</p>
+          <p class="score-summary">${escapeHtml(scoreSummaryText(data))}</p>
+        </div>
       </div>
-      <div class="issue-toolbar" aria-label="Issue filters">
-        ${renderFilter("all", "All")}
-        ${renderFilter("CRIT", "Critical")}
-        ${renderFilter("WARN", "Warning")}
-        ${renderFilter("INFO", "Info")}
-        ${renderFilter("OK", "OK")}
-        ${renderFilter("SKIP", "Skipped")}
+
+      <div class="counts" role="list" aria-label="Répartition des statuts">
+        ${countCell("CRIT", data)}
+        ${countCell("WARN", data)}
+        ${countCell("INFO", data)}
+        ${countCell("OK", data)}
+        ${countCell("SKIP", data)}
       </div>
-      <div class="issue-list">
-        ${filtered.length ? filtered.map(renderIssueCard).join("") : renderEmptyIssues()}
+
+      <p class="score-formula">${escapeHtml(scoreFormula(data))} = ${score}, points perdus ${scoreLost(data)} sur ${scoreMax(data)}</p>
+
+      <div class="actions" style="margin-top:24px">
+        <button class="cta ghost" data-view="findings">Voir les points à corriger</button>
+        <button class="cta ghost" data-view="report">Aller au rapport</button>
+        <button class="cta ghost" data-action="start">Relancer le scan</button>
       </div>
     </section>
   `;
 }
 
-function renderFilter(value, label) {
-  return `<button class="filter-button" data-filter="${value}" aria-pressed="${state.issueFilter === value}">${label}</button>`;
+function renderCategoriesView() {
+  const data = state.results;
+  const categories = sortCategories(data);
+  return `
+    <section>
+      <span class="eyebrow">Catégories</span>
+      <h1 class="title">Score par catégorie</h1>
+      <p class="lede">Les catégories sans contrôle applicable sont marquées non noté.</p>
+
+      <table class="cat-table">
+        <thead>
+          <tr>
+            <th>Catégorie</th>
+            <th>Score</th>
+            <th>Perdus / Max</th>
+            <th>À revoir</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${categories.map((row) => `
+            <tr>
+              <td>
+                <span class="cat-name">${escapeHtml(catLabel(row.category))}</span>
+                ${row.notScored ? '<div class="cat-meta">non noté</div>' : ""}
+              </td>
+              <td class="num">${row.notScored ? "non noté" : row.score}</td>
+              <td class="num">${row.notScored ? "non noté" : `${row.lost} / ${row.max}`}</td>
+              <td class="num">${row.actionable}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+
+      <p class="score-formula">${escapeHtml(scoreFormula(data))}, score global ${data.overall_score} sur 100.</p>
+    </section>
+  `;
 }
 
-function renderIssueCard(finding) {
-  const color = statusColors[finding.status] || statusColors.INFO;
+function renderFindingsView() {
+  const data = state.results;
+  const all = data.findings;
+  const counts = {
+    all: all.length,
+    CRIT: statusCount(data, "CRIT"),
+    WARN: statusCount(data, "WARN"),
+    INFO: statusCount(data, "INFO"),
+    OK: statusCount(data, "OK"),
+    SKIP: statusCount(data, "SKIP")
+  };
+  const filtered = all.filter((finding) => state.filter === "all" || finding.status === state.filter);
+
   return `
-    <article class="issue-card" style="--status-color:${color}">
-      <div class="issue-card-head">
-        <div>
-          <h2 class="issue-title">${escapeHtml(finding.name)}</h2>
-          <div class="issue-meta">
-            <span class="pill status-pill">${statusLabel(finding.status)}</span>
-            <span class="pill">${escapeHtml(finding.category)}</span>
-            <span class="pill">${escapeHtml(osSupportLabel(finding.supported_os))}</span>
-            <span class="pill">${finding.requires_admin ? "Admin required" : "No admin required"}</span>
-          </div>
-        </div>
+    <section>
+      <span class="eyebrow">Points à corriger</span>
+      <h1 class="title">${counts.CRIT + counts.WARN} point(s) à traiter</h1>
+      <p class="lede">Les éléments critiques apparaissent en premier. Filtre par statut si tu cherches autre chose.</p>
+
+      <div class="filters" role="toolbar" aria-label="Filtres">
+        ${filterButton("all", "Tout", counts.all)}
+        ${filterButton("CRIT", "Critique", counts.CRIT)}
+        ${filterButton("WARN", "Avertissement", counts.WARN)}
+        ${filterButton("INFO", "Info", counts.INFO)}
+        ${filterButton("OK", "Conforme", counts.OK)}
+        ${filterButton("SKIP", "Ignoré", counts.SKIP)}
       </div>
-      <div class="issue-sections">
-        <section class="issue-section">
-          <h3>What we found</h3>
-          <p>${escapeHtml(finding.what_we_found)}</p>
-        </section>
-        <section class="issue-section">
-          <h3>Why it matters</h3>
-          <p>${escapeHtml(finding.why_it_matters)}</p>
-        </section>
-        <section class="issue-section">
-          <h3>How to fix it</h3>
-          <ul class="fix-list">
-            ${finding.fix_steps.map((step) => `<li>${icon("check")}<span>${escapeHtml(step)}</span></li>`).join("")}
-          </ul>
-        </section>
+
+      ${filtered.length === 0 ? '<div class="empty">Aucun point dans ce filtre.</div>' : `
+        <div class="findings">
+          ${filtered.map(renderFinding).join("")}
+        </div>
+      `}
+    </section>
+  `;
+}
+
+function renderFinding(finding) {
+  const cls = STATUS_CLASS[finding.status] || "info";
+  const steps = (finding.fix_steps && finding.fix_steps.length ? finding.fix_steps : [finding.how_to_fix || "Revoir si nécessaire."])
+    .map((step) => `<li>${escapeHtml(step)}</li>`).join("");
+  return `
+    <article class="finding">
+      <header class="finding-head">
+        <span class="status-tag ${cls}">${STATUS_FR[finding.status] || finding.status}</span>
+        <h2 class="finding-title">${escapeHtml(finding.name)}</h2>
+        <span class="finding-cat">${escapeHtml(catLabel(finding.category))}</span>
+      </header>
+      <dl class="finding-body">
+        <div class="finding-block">
+          <dt>Constat</dt>
+          <dd>${escapeHtml(finding.what_we_found)}</dd>
+        </div>
+        <div class="finding-block">
+          <dt>Pourquoi c'est important</dt>
+          <dd>${escapeHtml(finding.why_it_matters)}</dd>
+        </div>
+        <div class="finding-block">
+          <dt>Étapes pour corriger</dt>
+          <dd><ol>${steps}</ol></dd>
+        </div>
+      </dl>
+      <div class="finding-meta">
+        <span>OS supportés <strong>${escapeHtml(osLabel(finding.supported_os))}</strong></span>
+        <span>Droits <strong>${finding.requires_admin ? "admin" : "utilisateur"}</strong></span>
       </div>
     </article>
   `;
 }
 
-function renderEmptyIssues() {
-  return `
-    <div class="empty-panel">
-      <h2>No findings in this filter</h2>
-      <p>Choose another status to see the rest of the local scan results.</p>
-    </div>
-  `;
-}
-
-function renderReport() {
+function renderReportView() {
   const data = state.results;
-  const issueCount = statusCount(data, "CRIT") + statusCount(data, "WARN");
+  const actionable = actionableCount(data);
   return `
-    <section class="report-grid" aria-labelledby="report-title">
-      <div class="report-panel">
-        <div class="report-heading">
-          <h1 id="report-title">Local report</h1>
-          <p>Export a self contained HTML summary from the loaded scan data.</p>
-        </div>
-        <div class="report-details">
-          ${reportRow("Scan date", formatDate(data.generated_at))}
-          ${reportRow("Operating system", systemLabel(data))}
-          ${reportRow("Risk score", `${data.overall_score} / 100`)}
-          ${reportRow("Score formula", scoreFormula(data))}
-          ${reportRow("Severity points", `${scoreLostPoints(data)} lost / ${scoreMaxPoints(data)} max`)}
-          ${reportRow("Issues to review", String(issueCount))}
-          ${reportRow("Data source", data.scan_source === "sample" ? "Prototype sample JSON" : "Local scanner")}
-        </div>
-        <div class="report-actions" style="margin-top:20px">
-          <button class="primary-button" data-action="export-report"><span class="button-icon">${icon("file")}</span>Export report</button>
-        </div>
-        ${state.exported ? '<div class="export-note">' + icon("check") + " Export started in this browser.</div>" : ""}
+    <section>
+      <span class="eyebrow">Rapport</span>
+      <h1 class="title">Exporter le rapport</h1>
+      <p class="lede">Le rapport HTML est généré dans le navigateur depuis les données du scan. Aucun envoi.</p>
+
+      <dl class="kv">
+        ${kvRow("Date du scan", formatDate(data.generated_at))}
+        ${kvRow("Système", systemLabel(data))}
+        ${kvRow("Source", data.scan_source === "scanner" ? "scanner local" : "données prototype")}
+        ${kvRow("Score", `${data.overall_score} / 100`)}
+        ${kvRow("Grade", data.grade || "non noté")}
+        ${kvRow("Formule", scoreFormula(data))}
+        ${kvRow("Points perdus", `${scoreLost(data)} sur ${scoreMax(data)}`)}
+        ${kvRow("Points à traiter", String(actionable))}
+        ${kvRow("Version du schéma", data.schema_version || "non précisée")}
+      </dl>
+
+      <div class="report-actions">
+        <button class="cta" data-action="export">Exporter le rapport HTML</button>
+        <button class="cta ghost" data-action="start">Relancer le scan</button>
       </div>
-      <aside class="privacy-panel">
-        <h2>Privacy</h2>
-        <ul class="privacy-list">
-          <li>${icon("check")}<span>Report is generated in the browser from local data.</span></li>
-          <li>${icon("check")}<span>No server upload is performed.</span></li>
-          <li>${icon("lock")}<span>The scan is started by the local Python server.</span></li>
-        </ul>
-      </aside>
+
+      ${state.exported ? '<div class="export-ok">Téléchargement déclenché par le navigateur.</div>' : ""}
     </section>
-  `;
-}
-
-function reportRow(label, value) {
-  return `<div class="report-row"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></div>`;
-}
-
-function renderWeight(status, data) {
-  const details = data.score_details || {};
-  const weights = details.severity_weights || {};
-  const impact = details.status_impact?.[status] || {};
-  const weight = Number(weights[status] ?? 0);
-  const lost = Number(impact.lost_points ?? 0);
-  return `
-    <div class="weight-pill">
-      <strong>${statusLabel(status)}</strong>
-      <span>${weight} pts each, ${lost} lost</span>
-    </div>
   `;
 }
 
 function renderError() {
   return `
-    <div class="empty-panel">
-      <div class="error-box">${escapeHtml(state.error)}</div>
-      <div class="button-row">
-        <button class="secondary-button" data-action="reset">Back to start</button>
+    <section>
+      <span class="eyebrow">Erreur</span>
+      <h1 class="title">Le scan n'a pas pu aboutir</h1>
+      <p class="hint error">${escapeHtml(state.error)}</p>
+      <div class="actions" style="margin-top:16px">
+        <button class="cta" data-action="start">Réessayer</button>
+        <button class="cta ghost" data-action="reset">Revenir à l'accueil</button>
       </div>
+    </section>
+  `;
+}
+
+function countCell(status, data) {
+  return `
+    <div class="count-cell is-${STATUS_CLASS[status]}" role="listitem">
+      <span class="num">${statusCount(data, status)}</span>
+      <span class="lbl">${STATUS_FR[status]}</span>
     </div>
   `;
 }
 
+function filterButton(value, label, count) {
+  const pressed = state.filter === value;
+  return `<button class="filter" data-filter="${value}" aria-pressed="${pressed}">${label}<span class="count">${count}</span></button>`;
+}
+
+function kvRow(label, value) {
+  return `<div class="kv-row"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+}
+
 function bindEvents() {
-  app.querySelectorAll("[data-action='start-scan']").forEach((button) => {
+  app.querySelectorAll("[data-action='start']").forEach((button) => {
     button.addEventListener("click", startScan);
   });
   app.querySelectorAll("[data-action='reset']").forEach((button) => {
-    button.addEventListener("click", resetApp);
+    button.addEventListener("click", () => {
+      state.screen = "start";
+      state.error = "";
+      render();
+    });
   });
-  app.querySelectorAll("[data-action='export-report']").forEach((button) => {
+  app.querySelectorAll("[data-action='export']").forEach((button) => {
     button.addEventListener("click", exportReport);
   });
-  app.querySelectorAll("[data-screen]").forEach((button) => {
+  app.querySelectorAll("[data-view]").forEach((button) => {
+    if (button.disabled) return;
     button.addEventListener("click", () => {
-      state.screen = button.dataset.screen;
+      state.view = button.dataset.view;
+      if (state.results) state.screen = "results";
       render();
     });
   });
   app.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.issueFilter = button.dataset.filter;
+      state.filter = button.dataset.filter;
       render();
     });
   });
@@ -454,46 +434,45 @@ async function startScan() {
   state.error = "";
   state.results = null;
   state.exported = false;
-  state.screen = "progress";
+  state.screen = "scan";
+  state.view = "summary";
+  state.filter = "all";
   state.progressIndex = 0;
-  state.progressPercent = 4;
+  state.progressPercent = 6;
+  state.scanLabel = `Lecture, ${catLabel(SCAN_CATEGORIES[0])}.`;
   render();
 
   let rawData = null;
   let scanError = null;
   let scanDone = false;
-  const scanRequest = runLocalScan()
-    .then((data) => {
-      rawData = data;
-    })
-    .catch((error) => {
-      scanError = error;
-    })
-    .finally(() => {
-      scanDone = true;
-    });
 
-  for (let index = 0; index < scanCategories.length && !scanDone; index += 1) {
+  const scanRequest = runLocalScan()
+    .then((data) => { rawData = data; })
+    .catch((error) => { scanError = error; })
+    .finally(() => { scanDone = true; });
+
+  for (let index = 0; index < SCAN_CATEGORIES.length && !scanDone; index += 1) {
     state.progressIndex = index;
-    state.progressPercent = Math.round(((index + 0.25) / scanCategories.length) * 100);
+    state.progressPercent = Math.round(((index + 0.4) / SCAN_CATEGORIES.length) * 100);
+    state.scanLabel = `Lecture, ${catLabel(SCAN_CATEGORIES[index])}.`;
     render();
-    await wait(420);
-    state.progressPercent = Math.round(((index + 1) / scanCategories.length) * 100);
+    await wait(280);
+    state.progressPercent = Math.round(((index + 1) / SCAN_CATEGORIES.length) * 100);
     render();
-    await wait(180);
+    await wait(140);
   }
 
   while (!scanDone) {
-    state.progressIndex = scanCategories.length - 1;
-    state.progressPercent = Math.min(92, state.progressPercent + 3);
+    state.progressIndex = SCAN_CATEGORIES.length - 1;
+    state.progressPercent = Math.min(94, state.progressPercent + 2);
     render();
-    await wait(450);
+    await wait(360);
   }
 
   await scanRequest;
 
   if (scanError || rawData === null) {
-    state.error = scanError?.message || "The local scan did not return data.";
+    state.error = (scanError && scanError.message) ? scanError.message : "Le scanner local n'a pas répondu.";
     state.screen = "start";
     render();
     return;
@@ -502,14 +481,15 @@ async function startScan() {
   try {
     state.results = normalizeScan(rawData);
   } catch (error) {
-    state.error = error.message || "The scanner response does not match the BeSecured JSON contract.";
+    state.error = error.message || "La réponse du scanner ne respecte pas le contrat BeSecured.";
     state.screen = "start";
     render();
     return;
   }
 
   state.screen = "results";
-  state.progressIndex = scanCategories.length;
+  state.view = "summary";
+  state.progressIndex = SCAN_CATEGORIES.length;
   state.progressPercent = 100;
   render();
 }
@@ -528,13 +508,17 @@ async function runLocalScan() {
     } catch {
       detail = "";
     }
-    throw new Error(detail || "Could not run the local scan. Start the UI with python -m besecured.ui.");
+    throw new Error(detail || "Lance l'interface avec python -m besecured.ui pour démarrer le scanner local.");
   }
   return response.json();
 }
 
 function normalizeScan(data) {
-  requireContractKeys(data, ["schema_version", "scan_source", "generated_at", "system_info", "status_counts", "category_scores", "overall_score", "grade", "score_details", "scoring_note", "findings"]);
+  const required = ["schema_version", "scan_source", "generated_at", "system_info", "status_counts", "category_scores", "overall_score", "grade", "score_details", "scoring_note", "findings"];
+  const missing = required.filter((key) => data[key] === undefined);
+  if (missing.length) {
+    throw new Error(`Réponse incomplète, clés manquantes: ${missing.join(", ")}`);
+  }
   const findings = Array.isArray(data.findings) ? data.findings.map(normalizeFinding) : [];
   return {
     schema_version: data.schema_version,
@@ -542,195 +526,160 @@ function normalizeScan(data) {
     generated_at: data.generated_at,
     system_info: data.system_info || {},
     status_counts: normalizeStatusCounts(data.status_counts, findings),
-    category_scores: normalizeCategoryScores(data.category_scores),
+    category_scores: data.category_scores || {},
     overall_score: clampScore(data.overall_score),
     grade: data.grade || "",
     score_details: data.score_details || {},
     scoring_note: data.scoring_note || "",
-    findings: sortedFindings(findings)
+    findings: sortFindings(findings)
   };
 }
 
 function normalizeFinding(finding, index) {
-  const status = String(finding.status || "").toUpperCase();
-  const safeStatus = statusOrder[status] === undefined ? "INFO" : status;
-  const whatWeFound = finding.what_we_found || finding.detail || "No detail available.";
-  const whyItMatters = finding.why_it_matters || finding.explanation || "This item can affect the local security posture.";
-  const howToFix = finding.how_to_fix || finding.recommended_action || finding.remediation || "Review if needed.";
+  const status = String(finding.status || "INFO").toUpperCase();
+  const safeStatus = STATUS_ORDER[status] === undefined ? "INFO" : status;
+  const what = finding.what_we_found || finding.detail || "Aucun détail disponible.";
+  const why = finding.why_it_matters || finding.explanation || "Cet élément peut affecter la posture locale.";
+  const how = finding.how_to_fix || finding.recommended_action || finding.remediation || "Revoir si nécessaire.";
   const supportedOs = Array.isArray(finding.supported_os)
     ? finding.supported_os.filter(Boolean)
-    : finding.supported === false
-      ? []
-      : ["Windows", "Linux", "macOS"];
+    : ["Windows", "macOS", "Linux"];
   return {
-    id: finding.id || `finding-${index}`,
+    id: finding.id || `f-${index}`,
     category: finding.category || "System",
-    name: finding.name || `Security check ${index + 1}`,
-    title: finding.title || finding.name || `Security check ${index + 1}`,
+    name: finding.name || `Contrôle ${index + 1}`,
     status: safeStatus,
-    severity: safeStatus,
-    severity_label: finding.severity_label || statusLabel(safeStatus),
-    detail: whatWeFound,
-    what_we_found: whatWeFound,
-    why_it_matters: whyItMatters,
-    explanation: whyItMatters,
-    how_to_fix: howToFix,
-    recommended_action: howToFix,
-    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [howToFix],
+    severity_label: finding.severity_label || STATUS_FR[safeStatus],
+    what_we_found: what,
+    why_it_matters: why,
+    how_to_fix: how,
+    fix_steps: Array.isArray(finding.fix_steps) && finding.fix_steps.length ? finding.fix_steps : [how],
     supported_os: supportedOs,
-    supported: supportedOs.length > 0,
-    requires_admin: Boolean(finding.requires_admin || finding.admin_required)
+    requires_admin: Boolean(finding.requires_admin)
   };
 }
 
-function requireContractKeys(data, keys) {
-  const missing = keys.filter((key) => data[key] === undefined);
-  if (missing.length) {
-    throw new Error(`ScanResult JSON missing key(s): ${missing.join(", ")}`);
-  }
-}
-
-function normalizeStatusCounts(statusCounts, findings) {
+function normalizeStatusCounts(counts, findings) {
   return {
-    CRIT: Number(statusCounts?.CRIT ?? countStatus(findings, "CRIT")),
-    WARN: Number(statusCounts?.WARN ?? countStatus(findings, "WARN")),
-    INFO: Number(statusCounts?.INFO ?? countStatus(findings, "INFO")),
-    OK: Number(statusCounts?.OK ?? countStatus(findings, "OK")),
-    SKIP: Number(statusCounts?.SKIP ?? countStatus(findings, "SKIP"))
+    CRIT: Number((counts || {}).CRIT ?? countStatus(findings, "CRIT")),
+    WARN: Number((counts || {}).WARN ?? countStatus(findings, "WARN")),
+    INFO: Number((counts || {}).INFO ?? countStatus(findings, "INFO")),
+    OK: Number((counts || {}).OK ?? countStatus(findings, "OK")),
+    SKIP: Number((counts || {}).SKIP ?? countStatus(findings, "SKIP"))
   };
 }
 
-function normalizeCategoryScores(categoryScores) {
-  return Object.fromEntries(
-    Object.entries(categoryScores || {}).map(([category, score]) => [
-      category,
-      score === null ? null : clampScore(score)
-    ])
-  );
-}
-
-function sortedFindings(findings) {
+function sortFindings(findings) {
   return [...findings].sort((a, b) => {
-    const rank = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
-    if (rank !== 0) {
-      return rank;
-    }
+    const rank = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
+    if (rank !== 0) return rank;
     return a.name.localeCompare(b.name);
   });
+}
+
+function sortCategories(data) {
+  const details = (data.score_details && data.score_details.category_details) || {};
+  const categories = Object.keys(data.category_scores || {}).sort((a, b) => catLabel(a).localeCompare(catLabel(b)));
+  return categories.map((category) => {
+    const score = data.category_scores[category];
+    const notScored = score === null || score === undefined;
+    const detail = details[category] || {};
+    const actionable = data.findings.filter((finding) => finding.category === category && (finding.status === "CRIT" || finding.status === "WARN")).length;
+    return {
+      category,
+      notScored,
+      score: notScored ? null : clampScore(score),
+      lost: Number(detail.lost_points ?? 0),
+      max: Number(detail.max_points ?? 0),
+      actionable
+    };
+  });
+}
+
+function actionableCount(data) {
+  return statusCount(data, "CRIT") + statusCount(data, "WARN");
+}
+
+function statusCount(data, status) {
+  return Number((data.status_counts || {})[status] ?? 0);
 }
 
 function countStatus(findings, status) {
   return findings.filter((finding) => finding.status === status).length;
 }
 
-function statusCount(data, status) {
-  return Number(data.status_counts?.[status] ?? 0);
+function readMachine(data) {
+  const sys = (data && data.system_info) || {};
+  return {
+    host: sys.Hostname || sys.hostname || "non lu",
+    os: sys.OS || sys.System || sys.os_label || "non lu"
+  };
 }
 
-function scoreSummary(data) {
-  return data.score_details?.summary || data.scoring_note || "Score details unavailable.";
+function catLabel(category) {
+  return CATEGORY_FR[category] || category;
 }
 
-function scoreSteps(data) {
-  const steps = data.score_details?.calculation_steps;
-  if (Array.isArray(steps) && steps.length) {
-    return steps;
+function osLabel(supportedOs) {
+  if (!Array.isArray(supportedOs) || supportedOs.length === 0) return "non précisé";
+  return supportedOs.join(", ");
+}
+
+function colorClassForScore(score) {
+  if (score >= 85) return "ok";
+  if (score >= 60) return "warn";
+  return "crit";
+}
+
+function scoreHeadline(score) {
+  if (score >= 90) return "Posture saine";
+  if (score >= 75) return "Quelques points à corriger";
+  if (score >= 60) return "Plusieurs corrections recommandées";
+  if (score >= 40) return "Posture faible";
+  return "Posture critique";
+}
+
+function scoreDescription(data) {
+  const actionable = actionableCount(data);
+  if (actionable === 0) {
+    return "Aucun point critique ni avertissement détecté sur ce scan.";
   }
-  return [`Final score: ${scoreFormula(data)} = ${data.overall_score}.`];
+  return `${actionable} point(s) à revoir avant de considérer la machine propre.`;
+}
+
+function scoreSummaryText(data) {
+  return data.scoring_note || (data.score_details && data.score_details.summary) || "Détail du score indisponible.";
 }
 
 function scoreFormula(data) {
-  return data.score_details?.formula || "100 - round(lost_points / max_points * 100)";
+  return (data.score_details && data.score_details.formula) || "100 - round(perdus / max * 100)";
 }
 
-function scoreLostPoints(data) {
-  return Number(data.score_details?.lost_points ?? 0);
+function scoreLost(data) {
+  return Number((data.score_details || {}).lost_points ?? 0);
 }
 
-function scoreMaxPoints(data) {
-  return Number(data.score_details?.max_points ?? 0);
-}
-
-function statusLabel(status) {
-  return {
-    CRIT: "Critical",
-    WARN: "Warning",
-    OK: "OK",
-    INFO: "Info",
-    SKIP: "Skipped"
-  }[status] || "Info";
-}
-
-function categoriesForResults(data) {
-  const categories = Object.keys(data.category_scores || {});
-  if (categories.length) {
-    return categories;
-  }
-  return [...new Set(data.findings.map((finding) => finding.category))].sort();
+function scoreMax(data) {
+  return Number((data.score_details || {}).max_points ?? 0);
 }
 
 function systemLabel(data) {
-  return data.system_info?.OS || data.system_info?.System || "Unknown OS";
-}
-
-function osSupportLabel(supportedOs) {
-  if (!Array.isArray(supportedOs) || supportedOs.length === 0) {
-    return "Unsupported OS";
-  }
-  return `OS: ${supportedOs.join(", ")}`;
-}
-
-function statusText(data) {
-  if (data.overall_score >= 85) {
-    return "Your device looks good";
-  }
-  if (data.overall_score >= 60) {
-    return "Some issues need attention";
-  }
-  return "High risk, fix these first";
-}
-
-function riskDescription(data) {
-  const issueCount = statusCount(data, "CRIT") + statusCount(data, "WARN");
-  if (issueCount === 0) {
-    return "Passed checks dominate this local sample report.";
-  }
-  return `${issueCount} issue${issueCount === 1 ? "" : "s"} should be reviewed before this device is considered clean.`;
-}
-
-function sourceNotice(data) {
-  if (data.scan_source !== "sample") {
-    return '<div class="local-note">' + icon("lock") + " Real local scan completed.</div>";
-  }
-  return '<div class="demo-note">' + icon("alert") + " Prototype sample data.</div>";
-}
-
-function colorForScore(score) {
-  if (score >= 85) {
-    return statusColors.OK;
-  }
-  if (score >= 60) {
-    return statusColors.WARN;
-  }
-  return statusColors.CRIT;
+  const sys = (data && data.system_info) || {};
+  return sys.OS || sys.System || sys.os_label || "OS inconnu";
 }
 
 function clampScore(value) {
   const number = Number(value);
-  if (!Number.isFinite(number)) {
-    return 0;
-  }
+  if (!Number.isFinite(number)) return 0;
   return Math.max(0, Math.min(100, Math.round(number)));
 }
 
 function formatDate(value) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat("en", {
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("fr-FR", {
     year: "numeric",
-    month: "short",
+    month: "long",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit"
@@ -743,7 +692,7 @@ function exportReport() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `BeSecured-report-${String(state.results.generated_at).slice(0, 10)}.html`;
+  anchor.download = `BeSecured-rapport-${String(state.results.generated_at).slice(0, 10)}.html`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
@@ -753,57 +702,53 @@ function exportReport() {
 }
 
 function renderExportHtml(data) {
-  const issueCount = statusCount(data, "CRIT") + statusCount(data, "WARN");
-  const issues = sortedFindings(data.findings).map((finding) => `
+  const actionable = actionableCount(data);
+  const findings = data.findings.map((finding) => `
     <section>
       <h2>${escapeHtml(finding.name)}</h2>
-      <p><strong>Severity:</strong> ${escapeHtml(statusLabel(finding.status))}</p>
-      <p><strong>Category:</strong> ${escapeHtml(finding.category)}</p>
-      <p><strong>OS support:</strong> ${escapeHtml(osSupportLabel(finding.supported_os))}</p>
-      <p><strong>Admin:</strong> ${finding.requires_admin ? "Required" : "Not required"}</p>
-      <p><strong>What we found:</strong> ${escapeHtml(finding.what_we_found)}</p>
-      <p><strong>Why it matters:</strong> ${escapeHtml(finding.why_it_matters)}</p>
-      <p><strong>How to fix it:</strong></p>
-      <ul>${finding.fix_steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ul>
+      <p><strong>Statut</strong> ${escapeHtml(STATUS_FR[finding.status] || finding.status)}</p>
+      <p><strong>Catégorie</strong> ${escapeHtml(catLabel(finding.category))}</p>
+      <p><strong>OS supportés</strong> ${escapeHtml(osLabel(finding.supported_os))}</p>
+      <p><strong>Droits</strong> ${finding.requires_admin ? "admin" : "utilisateur"}</p>
+      <p><strong>Constat</strong> ${escapeHtml(finding.what_we_found)}</p>
+      <p><strong>Pourquoi c'est important</strong> ${escapeHtml(finding.why_it_matters)}</p>
+      <p><strong>Étapes pour corriger</strong></p>
+      <ol>${finding.fix_steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>
     </section>
   `).join("");
   return `<!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>BeSecured Report</title>
+  <title>BeSecured, rapport local</title>
   <style>
-    body { margin: 0; padding: 32px; color: #142033; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.5; background: #f4f7fb; }
-    main { max-width: 920px; margin: 0 auto; }
-    header, section { margin-bottom: 16px; padding: 18px; background: #fff; border: 1px solid #d7e1ec; border-radius: 8px; }
-    h1, h2 { margin: 0 0 10px; }
-    p { margin: 7px 0; }
+    body { margin: 0; padding: 32px; background: #E8E9EC; color: #1A1D21; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; line-height: 1.5; }
+    main { max-width: 820px; margin: 0 auto; background: #F4F5F7; padding: 28px; border: 1px solid #D5D7DA; }
+    h1 { margin: 0 0 12px; font-size: 22px; }
+    h2 { margin: 0 0 6px; font-size: 16px; }
+    section { padding: 14px 0; border-top: 1px solid #D5D7DA; }
+    section:first-of-type { border-top: 0; }
+    p, ol { margin: 4px 0; font-size: 13px; }
   </style>
 </head>
 <body>
   <main>
-    <header>
-      <h1>BeSecured Report</h1>
-      <p>Scan date: ${escapeHtml(formatDate(data.generated_at))}</p>
-      <p>Operating system: ${escapeHtml(systemLabel(data))}</p>
-      <p>Score: ${data.overall_score} / 100</p>
-      <p>Formula: ${escapeHtml(scoreFormula(data))}</p>
-      <p>Severity points: ${scoreLostPoints(data)} lost / ${scoreMaxPoints(data)} max</p>
-      <p>${escapeHtml(scoreSummary(data))}</p>
-      <p>Issues to review: ${issueCount}</p>
-    </header>
-    ${issues}
+    <h1>BeSecured, rapport local</h1>
+    <p>Date du scan ${escapeHtml(formatDate(data.generated_at))}</p>
+    <p>Système ${escapeHtml(systemLabel(data))}</p>
+    <p>Score ${data.overall_score} sur 100, grade ${escapeHtml(data.grade || "")}</p>
+    <p>Formule ${escapeHtml(scoreFormula(data))}</p>
+    <p>Points perdus ${scoreLost(data)} sur ${scoreMax(data)}</p>
+    <p>Points à traiter ${actionable}</p>
+    <p>${escapeHtml(scoreSummaryText(data))}</p>
+    ${findings}
   </main>
 </body>
 </html>`;
 }
 
-function resetApp() {
-  state.screen = "start";
-  state.error = "";
-  state.results = null;
-  state.exported = false;
-  render();
+function pad(value) {
+  return String(value).padStart(2, "0");
 }
 
 function wait(ms) {
