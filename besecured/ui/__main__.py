@@ -27,9 +27,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def find_free_port(host: str) -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(family, socket.SOCK_STREAM) as probe:
         probe.bind((host, 0))
         return int(probe.getsockname()[1])
+
+
+def _make_server(host: str, port: int, handler) -> ThreadingHTTPServer:
+    if ":" in host:
+        class IPv6UIServer(ThreadingHTTPServer):
+            address_family = socket.AF_INET6
+
+        return IPv6UIServer((host, port), handler)
+    return ThreadingHTTPServer((host, port), handler)
 
 
 def find_app_browser() -> str | None:
@@ -129,9 +139,10 @@ def main(argv: list[str] | None = None) -> int:
     static_dir = Path(__file__).resolve().parent / "static"
     port = args.port or find_free_port(args.host)
     handler = partial(BeSecuredUIHandler, directory=str(static_dir))
-    server = ThreadingHTTPServer((args.host, port), handler)
+    server = _make_server(args.host, port, handler)
     scheme = "http"
-    url = f"{scheme}://{args.host}:{port}/"
+    host_for_url = f"[{args.host}]" if ":" in args.host else args.host
+    url = f"{scheme}://{host_for_url}:{port}/"
 
     print(f"BeSecured running locally at {url}")
     print("Press Ctrl+C to stop.")

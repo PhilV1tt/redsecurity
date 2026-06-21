@@ -61,8 +61,13 @@ def score_findings(findings: list[Finding]) -> int:
 def score_breakdown(findings: list[Finding]) -> ScoreBreakdown:
     actionable = [finding for finding in findings if finding.status in ACTIONABLE_STATUSES]
     if not actionable:
+        # No OK/WARN/CRIT check could run (e.g. unsupported OS, or every check
+        # was SKIP/INFO). No weakness was detected, so no points are lost: report
+        # the formula's natural limit (100) rather than 0, which would wrongly
+        # grade an unscannable machine as the most insecure one possible. The
+        # summary makes clear the machine is effectively unscored.
         return ScoreBreakdown(
-            score=0,
+            score=100,
             scored_findings=0,
             lost_points=0,
             max_points=0,
@@ -76,7 +81,7 @@ def score_breakdown(findings: list[Finding]) -> ScoreBreakdown:
                 "No OK, WARN or CRIT checks ran.",
                 "INFO and SKIP findings are visible but ignored by the score.",
             ],
-            summary="No scored checks ran, so BeSecured cannot rate this machine yet.",
+            summary="No scored checks ran, so BeSecured could not rate this machine. No weakness was detected.",
             factors=["INFO and SKIP findings are shown in the report but do not change the score."],
         )
 

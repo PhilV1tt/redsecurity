@@ -6,22 +6,23 @@ import pwd
 import re
 from pathlib import Path
 
-from besecured.checks.common import command_exists, file_age_days, readable_files, run_command, unavailable_finding
+from besecured.checks.common import command_exists, file_age_days, file_mentions_temp, readable_files, run_checks, run_command, unavailable_finding
 from besecured.models import Finding
 
 
 def run_linux_checks() -> list[Finding]:
-    findings: list[Finding] = []
-    findings.extend(check_firewall())
-    findings.extend(check_updates())
-    findings.extend(check_disk_encryption())
-    findings.extend(check_users())
-    findings.extend(check_password_policy())
-    findings.extend(check_shared_folders())
-    findings.extend(check_startup_programs())
-    findings.extend(check_antivirus())
-    findings.extend(check_privilege_model())
-    return _linux_findings(findings)
+    checks = [
+        ("Firewall", check_firewall),
+        ("Updates", check_updates),
+        ("Disk Encryption", check_disk_encryption),
+        ("User Accounts", check_users),
+        ("Password Policy", check_password_policy),
+        ("Shared Folders", check_shared_folders),
+        ("Startup Programs", check_startup_programs),
+        ("Antivirus", check_antivirus),
+        ("Privilege Elevation", check_privilege_model),
+    ]
+    return _linux_findings(run_checks(checks))
 
 
 def _linux_findings(findings: list[Finding]) -> list[Finding]:
@@ -264,7 +265,7 @@ def check_startup_programs() -> list[Finding]:
         Path("/etc/systemd/system"),
     ]
     files = readable_files(paths)
-    suspicious = [path for path in files if _file_mentions_temp(path)]
+    suspicious = [path for path in files if file_mentions_temp(path)]
     findings = [
         Finding(
             category,
@@ -479,11 +480,3 @@ def _samba_shares(path: Path) -> list[str]:
         if share.lower() not in ignored:
             shares.append(share)
     return shares
-
-
-def _file_mentions_temp(path: Path) -> bool:
-    try:
-        content = path.read_text(errors="ignore")
-    except OSError:
-        return False
-    return bool(re.search(r"(/tmp/|/var/tmp/|\\temp\\|\\tmp\\)", content, re.IGNORECASE))

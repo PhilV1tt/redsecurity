@@ -5,22 +5,23 @@ import re
 import shutil
 import unicodedata
 
-from besecured.checks.common import run_command, unavailable_finding
+from besecured.checks.common import run_checks, run_command, unavailable_finding
 from besecured.models import Finding
 
 
 def run_windows_checks() -> list[Finding]:
-    findings: list[Finding] = []
-    findings.extend(check_firewall())
-    findings.extend(check_updates())
-    findings.extend(check_disk_encryption())
-    findings.extend(check_users())
-    findings.extend(check_password_policy())
-    findings.extend(check_shared_folders())
-    findings.extend(check_startup_programs())
-    findings.extend(check_antivirus())
-    findings.extend(check_uac())
-    return _windows_findings(findings)
+    checks = [
+        ("Firewall", check_firewall),
+        ("Updates", check_updates),
+        ("Disk Encryption", check_disk_encryption),
+        ("User Accounts", check_users),
+        ("Password Policy", check_password_policy),
+        ("Shared Folders", check_shared_folders),
+        ("Startup Programs", check_startup_programs),
+        ("Antivirus", check_antivirus),
+        ("UAC", check_uac),
+    ]
+    return _windows_findings(run_checks(checks))
 
 
 def _windows_findings(findings: list[Finding]) -> list[Finding]:
@@ -32,25 +33,56 @@ def check_firewall() -> list[Finding]:
     skip = _powershell_skip(category, "Firewall Check", "Open Windows Security and verify that all firewall profiles are enabled.")
     if skip:
         return skip
-    data = _powershell_json("Get-NetFirewallProfile | Select-Object Name,Enabled | ConvertTo-Json -Compress")
+    # Cast Enabled to a real bool in PowerShell so the GpoBoolean enum (1=True,
+    # 2=False) cannot reach Python as a truthy integer.
+    data = _powershell_json(
+        "Get-NetFirewallProfile | "
+        "Select-Object Name,@{N='Enabled';E={[bool]$_.Enabled}} | "
+        "ConvertTo-Json -Compress"
+    )
     if data is None:
         return [Finding(category, "Firewall Check", "WARN", "Could not query Windows Firewall.", "Open Windows Security and verify that all firewall profiles are enabled.")]
+    return _firewall_findings_from_payload(data)
 
+
+def _firewall_findings_from_payload(data) -> list[Finding]:
+    category = "Firewall"
     profiles = data if isinstance(data, list) else [data]
     findings: list[Finding] = []
     for profile in profiles:
+        if not isinstance(profile, dict):
+            continue
         name = str(profile.get("Name", "Unknown"))
-        enabled = bool(profile.get("Enabled"))
-        findings.append(
-            Finding(
+        state = _enabled_state(profile.get("Enabled"))
+        if state is True:
+            findings.append(Finding(category, f"Firewall ({name})", "OK", f"Profile {name} is enabled.", "Keep Windows Firewall enabled on Domain, Private and Public profiles."))
+        elif state is False:
+            findings.append(Finding(category, f"Firewall ({name})", "CRIT", f"Profile {name} is disabled.", "Keep Windows Firewall enabled on Domain, Private and Public profiles."))
+        else:
+            findings.append(Finding(category, f"Firewall ({name})", "WARN", f"Firewall state for profile {name} could not be determined.", "Open Windows Security and verify that all firewall profiles are enabled."))
+    if not findings:
+        return [
+            unavailable_finding(
                 category,
-                f"Firewall ({name})",
-                "OK" if enabled else "CRIT",
-                f"Profile {name} is {'enabled' if enabled else 'disabled'}.",
-                "Keep Windows Firewall enabled on Domain, Private and Public profiles.",
+                "Firewall Check",
+                "Windows firewall query returned no profiles",
+                "Open Windows Security and verify that all firewall profiles are enabled.",
             )
-        )
+        ]
     return findings
+
+
+def _enabled_state(value) -> bool | None:
+    """Interpret a Windows 'Enabled' value that may be a bool, the GpoBoolean
+    integer enum (1=True, 2=False), or a string. Returns None when unknown."""
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "on", "enabled"}:
+        return True
+    if text in {"0", "2", "false", "off", "disabled", "none", ""}:
+        return False
+    return None
 
 
 def check_updates() -> list[Finding]:
@@ -320,8 +352,17 @@ def check_antivirus() -> list[Finding]:
                 "Enable real-time protection in Windows Security.",
             ),
         ]
-        if isinstance(age, int):
+        if isinstance(age, int) and 0 <= age <= 3650:
             findings.append(_age_finding(category, "Signature Age", age, "Defender signatures", warn_days=3, crit_days=7))
+        elif isinstance(age, int):
+            findings.append(
+                unavailable_finding(
+                    category,
+                    "Signature Age",
+                    "Defender signature timestamp looks invalid",
+                    "Open Windows Security and confirm that virus definitions are up to date.",
+                )
+            )
         return findings
 
     products = data.get("Products") or []
@@ -400,8 +441,10 @@ def _powershell_json(script: str):
     result = _powershell(script)
     if not result.stdout:
         return None
+    # Windows PowerShell 5.1 often prefixes redirected stdout with a UTF-8 BOM,
+    # which makes json.loads raise; strip it before parsing.
     try:
-        return json.loads(result.stdout)
+        return json.loads(result.stdout.lstrip("﻿"))
     except json.JSONDecodeError:
         return None
 

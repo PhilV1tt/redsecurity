@@ -47,5 +47,25 @@ class CliTests(unittest.TestCase):
                 os.chdir(old_cwd)
 
 
+class CliExtraGuardTests(unittest.TestCase):
+    def test_forward_slash_unc_is_rejected(self):
+        self.assertFalse(is_local_output_path(Path("//server/share/report.html")))
+
+    def test_extra_url_schemes_are_rejected(self):
+        self.assertFalse(is_local_output_path(Path("file:///tmp/r.html")))
+        self.assertFalse(is_local_output_path(Path("smb://server/share/r.html")))
+        self.assertFalse(is_local_output_path(Path("ftp://host/r.html")))
+
+    def test_linux_remote_mounts_and_sync_dirs_are_rejected(self):
+        for raw in (
+            "/mnt/usb/r.html",
+            "/media/x/r.html",
+            "/run/user/1000/r.html",
+            "/home/x/Nextcloud/r.html",
+            "/home/x/Dropbox/r.html",
+        ):
+            self.assertFalse(is_local_output_path(Path(raw)), raw)
+
+
 if __name__ == "__main__":
     unittest.main()

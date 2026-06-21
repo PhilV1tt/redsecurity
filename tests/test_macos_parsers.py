@@ -74,6 +74,10 @@ class MacosParserTests(unittest.TestCase):
     def test_dedupe_share_names(self):
         self.assertEqual(_dedupe(["Public", "Public", " public "]), ["Public"])
 
+    def test_extract_dates_accepts_non_zero_padded_iso(self):
+        self.assertIn(dt.date(2026, 3, 9), _extract_dates("last update 2026-3-9"))
+        self.assertIn(dt.date(2026, 5, 3), _extract_dates("last update 2026-5-3"))
+
 
 if __name__ == "__main__":
     unittest.main()

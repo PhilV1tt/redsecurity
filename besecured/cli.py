@@ -79,6 +79,9 @@ def is_local_output_path(path: Path) -> bool:
         return False
     if raw.startswith("\\\\") and not re.match(r"^\\\\\?\\[A-Za-z]:\\", raw):
         return False
+    forward = raw.replace("\\", "/")
+    if forward.startswith("//") and not re.match(r"^//\?/[A-Za-z]:/", forward):
+        return False
     for candidate in _path_texts_to_check(path):
         normalized = "/" + candidate.replace("\\", "/").strip("/").lower() + "/"
         if any(marker in normalized for marker in SYNC_PATH_MARKERS):

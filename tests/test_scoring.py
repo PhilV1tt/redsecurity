@@ -63,5 +63,26 @@ class ScoringTests(unittest.TestCase):
         self.assertIn("Lost severity points: 7 out of 15.", breakdown.calculation_steps)
 
 
+class ScoringEdgeTests(unittest.TestCase):
+    def test_no_actionable_findings_are_unscored_not_graded_f(self):
+        for findings in ([], [Finding("A", "i", "INFO", "x"), Finding("B", "s", "SKIP", "y")]):
+            breakdown = score_breakdown(findings)
+            self.assertEqual(breakdown.scored_findings, 0)
+            self.assertEqual(breakdown.max_points, 0)
+            self.assertEqual(breakdown.lost_points, 0)
+            self.assertEqual(breakdown.score, 100)
+            self.assertNotEqual(grade_for_score(breakdown.score), "F")
+
+    def test_all_ok_scores_100_grade_a(self):
+        findings = [Finding("A", "ok1", "OK", "x"), Finding("B", "ok2", "OK", "y")]
+        self.assertEqual(score_findings(findings), 100)
+        self.assertEqual(grade_for_score(100), "A")
+
+    def test_grade_boundaries(self):
+        cases = {100: "A", 90: "A", 89: "B", 75: "B", 74: "C", 60: "C", 59: "D", 40: "D", 39: "F", 0: "F"}
+        for score, grade in cases.items():
+            self.assertEqual(grade_for_score(score), grade, f"score {score}")
+
+
 if __name__ == "__main__":
     unittest.main()

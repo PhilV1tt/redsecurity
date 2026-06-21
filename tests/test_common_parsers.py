@@ -2,10 +2,12 @@ import unittest
 
 from besecured.checks.common import (
     ListeningPort,
+    _address_from_listener_text,
     _decode_proc_address,
     _lsof_listeners_from_text,
     _netstat_listeners_from_text,
     _port_scope,
+    _split_address_port,
     _ss_listeners_from_text,
     _windows_netstat_listeners_from_text,
     unavailable_finding,
@@ -70,6 +72,30 @@ LISTEN 0      128      0.0.0.0:22            0.0.0.0:*
 
         self.assertEqual(finding.status, "SKIP")
         self.assertIn("tool missing", finding.detail)
+
+
+class CommonParserIpv6Tests(unittest.TestCase):
+    def test_split_address_port_handles_macos_dotted_ipv6(self):
+        self.assertEqual(_split_address_port("::1.631"), ("::1", 631))
+        self.assertEqual(_split_address_port("127.0.0.1.8080"), ("127.0.0.1", 8080))
+        self.assertEqual(_split_address_port("0.0.0.0:22"), ("0.0.0.0", 22))
+
+    def test_decode_proc_address_decodes_generic_ipv6(self):
+        self.assertEqual(_decode_proc_address("B80D0120000000000000000001000000"), "2001:db8::1")
+
+    def test_decode_proc_address_decodes_generic_ipv4(self):
+        self.assertEqual(_decode_proc_address("0101A8C0"), "192.168.1.1")
+
+    def test_lsof_keeps_routable_bind_address(self):
+        self.assertEqual(
+            _address_from_listener_text("Python 1 phil 7u IPv4 1 0t0 TCP 192.168.1.5:8080 (LISTEN)"),
+            "192.168.1.5",
+        )
+
+    def test_ss_parser_handles_bracketed_ipv6(self):
+        text = "LISTEN 0 128 [::]:22 [::]:*\nLISTEN 0 4096 [::1]:631 [::]:*\n"
+        listeners = _ss_listeners_from_text(text)
+        self.assertEqual([(item.port, item.address) for item in listeners], [(22, "::"), (631, "::1")])
 
 
 if __name__ == "__main__":

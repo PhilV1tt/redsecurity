@@ -131,5 +131,41 @@ class ReportTests(unittest.TestCase):
                     self.assertNotIn(marker, text)
 
 
+class ReportEdgeTests(unittest.TestCase):
+    def _result(self, findings, system_info):
+        breakdown = score_breakdown(findings)
+        return ScanResult(
+            generated_at=datetime(2026, 6, 5, 12, 0, 0),
+            system_info=system_info,
+            findings=findings,
+            status_counts=count_statuses(findings),
+            category_scores=category_scores(findings),
+            overall_score=breakdown.score,
+            grade=grade_for_score(breakdown.score),
+            score_details=breakdown.to_dict(),
+            scoring_note=breakdown.summary,
+        )
+
+    def test_machine_controlled_strings_are_html_escaped(self):
+        findings = [Finding("<script>alert(1)</script>", "name", "WARN", "detail")]
+        result = self._result(
+            findings,
+            {"Hostname": "<script>alert(1)</script>", "Username": '"><img src=x onerror=alert(1)>'},
+        )
+        html = render_html(result)
+        self.assertNotIn("<script>alert(1)</script>", html)
+        self.assertIn("&lt;script&gt;", html)
+        self.assertNotIn("<img src=x onerror=", html)
+
+    def test_skip_info_only_result_renders(self):
+        findings = [
+            Finding("Firewall", "Firewall Check", "SKIP", "tool missing", "Check manually."),
+            Finding("Open Ports", "Total Listening Ports", "INFO", "0 ports", "x"),
+        ]
+        html = render_html(self._result(findings, {"Hostname": "h"}))
+        self.assertIn("Detailed Findings", html)
+        self.assertIn("Skipped", html)
+
+
 if __name__ == "__main__":
     unittest.main()

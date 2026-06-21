@@ -9,9 +9,13 @@ import socket
 import subprocess
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Callable, Iterable, Sequence
+
+CheckCallable = Callable[[], "list[Finding]"]
 
 from besecured.models import Finding
 
@@ -66,6 +70,7 @@ def run_command(args: Sequence[str], timeout: int = 8) -> CommandResult:
             list(args),
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=timeout,
             check=False,
         )
@@ -80,8 +85,25 @@ def run_command(args: Sequence[str], timeout: int = 8) -> CommandResult:
         return CommandResult(None, "", str(exc))
 
 
+@lru_cache(maxsize=None)
 def command_exists(name: str) -> bool:
+    # PATH is stable within a scan; memoising avoids repeated PATH walks when the
+    # same tool (ss, lsof, netstat, systemctl) is probed by several checks.
     return shutil.which(name) is not None
+
+
+def _powershell_value(script: str, timeout: int = 8) -> str:
+    """Return the trimmed stdout of a small PowerShell expression, or "".
+
+    Used as a fallback for system info on Windows builds where ``wmic`` has been
+    removed (Windows 11 24H2 and later). Returns "" when no PowerShell host is
+    available so callers degrade to "Unknown" instead of failing.
+    """
+    executable = shutil.which("powershell.exe") or shutil.which("powershell") or shutil.which("pwsh")
+    if not executable:
+        return ""
+    result = run_command([executable, "-NoProfile", "-Command", script], timeout=timeout)
+    return result.stdout.strip()
 
 
 def is_admin() -> bool:
@@ -129,10 +151,49 @@ def unavailable_finding(
     )
 
 
+def run_checks(checks: Sequence[tuple[str, CheckCallable]], *, parallel: bool = True) -> list[Finding]:
+    """Run a sequence of ``(category, check)`` callables and flatten their findings.
+
+    Each check returns a ``list[Finding]``. If a check raises, it is converted
+    into a single ``SKIP`` finding so one failing check never aborts the whole
+    scan. Output preserves the order of the input checks; the report re-sorts by
+    severity for display. Checks are independent and read-only, so by default
+    they run concurrently to cut wall-clock time (most checks block on
+    subprocesses).
+    """
+
+    def run_one(entry: tuple[str, CheckCallable]) -> list[Finding]:
+        category, check = entry
+        try:
+            return list(check())
+        except Exception as exc:  # resilience boundary: never let one check abort the scan
+            return [_check_error_finding(category, exc)]
+
+    if parallel and len(checks) > 1:
+        with ThreadPoolExecutor(max_workers=min(8, len(checks))) as executor:
+            grouped = list(executor.map(run_one, checks))
+    else:
+        grouped = [run_one(entry) for entry in checks]
+    return [finding for group in grouped for finding in group]
+
+
+def _check_error_finding(category: str, exc: Exception) -> Finding:
+    return Finding(
+        category,
+        "Check Error",
+        "SKIP",
+        f"This check could not complete: {exc}",
+        "Re-run the scan. If this keeps failing, review this item manually.",
+    )
+
+
 def run_common_checks(admin: bool) -> list[Finding]:
-    findings = [check_privilege_level(admin)]
-    findings.extend(check_open_ports())
-    return findings
+    return run_checks(
+        [
+            ("Execution Context", lambda: [check_privilege_level(admin)]),
+            ("Open Ports", check_open_ports),
+        ]
+    )
 
 
 def check_privilege_level(admin: bool) -> Finding:
@@ -184,6 +245,9 @@ def _cpu_name() -> str:
         match = re.search(r"Name=(.+)", result.stdout)
         if match:
             return match.group(1).strip()
+        cim = _powershell_value("(Get-CimInstance Win32_Processor).Name")
+        if cim:
+            return cim.splitlines()[0].strip()
     return platform.processor() or "Unknown"
 
 
@@ -205,6 +269,10 @@ def _ram_total() -> str:
         match = re.search(r"TotalPhysicalMemory=(\d+)", result.stdout)
         if match:
             total_bytes = int(match.group(1))
+        else:
+            cim = _powershell_value("(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory")
+            if cim.isdigit():
+                total_bytes = int(cim)
 
     if total_bytes is None:
         return "Unknown"
@@ -237,6 +305,13 @@ def _uptime() -> str:
                 seconds = time.time() - boot
             except ValueError:
                 seconds = None
+        if seconds is None:
+            cim = _powershell_value(
+                "[int]((Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime).TotalSeconds"
+            )
+            parsed = _safe_int(cim)
+            if parsed is not None and parsed >= 0:
+                seconds = float(parsed)
 
     if seconds is None:
         return "Unknown"
@@ -538,7 +613,14 @@ def _decode_proc_address(address_hex: str) -> str:
     if len(address_hex) == 8:
         try:
             return socket.inet_ntoa(bytes.fromhex(address_hex)[::-1])
-        except OSError:
+        except (OSError, ValueError):
+            return address_hex
+    if len(address_hex) == 32:
+        # /proc/net/tcp6 stores IPv6 as four 32-bit words, each little-endian.
+        try:
+            packed = b"".join(bytes.fromhex(address_hex[i : i + 8])[::-1] for i in range(0, 32, 8))
+            return socket.inet_ntop(socket.AF_INET6, packed)
+        except (OSError, ValueError):
             return address_hex
     return address_hex
 
@@ -548,11 +630,16 @@ def _split_address_port(value: str) -> tuple[str, int | None]:
     if clean.startswith("[") and "]:" in clean:
         address, port_text = clean.rsplit("]:", 1)
         return address.lstrip("["), _safe_int(port_text)
+    # BSD/macOS netstat uses a dotted port form ('127.0.0.1.8080', '*.8080',
+    # '::1.631'). Try it before the bare ':' split so dotted IPv6 like '::1.631'
+    # is not mis-read as address ':' / port None.
+    if "." in clean:
+        head, tail = clean.rsplit(".", 1)
+        port = _safe_int(tail)
+        if port is not None and head:
+            return head, port
     if ":" in clean:
         address, port_text = clean.rsplit(":", 1)
-        return address, _safe_int(port_text)
-    if "." in clean:
-        address, port_text = clean.rsplit(".", 1)
         return address, _safe_int(port_text)
     return clean, None
 
@@ -567,7 +654,12 @@ def _safe_int(value: str) -> int | None:
 def _address_from_listener_text(text: str) -> str:
     if "localhost" in text:
         return "127.0.0.1"
-    match = re.search(r"(127\.\d+\.\d+\.\d+|\[?::1\]?|0\.0\.0\.0|\[?::\]?|\*)[:.]\d+", text)
+    # Extract the real bind address (IPv4, bracketed IPv6, bare ::/::1, or *) so a
+    # service bound to a routable address is not silently downgraded to "unknown".
+    match = re.search(
+        r"(\[[0-9A-Fa-f:]+\]|\d{1,3}(?:\.\d{1,3}){3}|::1|::|\*)[:.]\d+(?:\s|\(|$)",
+        text,
+    )
     if match:
         return match.group(1).strip("[]")
     return ""
@@ -601,6 +693,15 @@ def file_age_days(path: Path) -> int | None:
         return round((time.time() - path.stat().st_mtime) / 86400)
     except OSError:
         return None
+
+
+def file_mentions_temp(path: Path) -> bool:
+    """True if a startup/launch file references a temp path (a common loader trick)."""
+    try:
+        content = path.read_text(errors="ignore")
+    except OSError:
+        return False
+    return bool(re.search(r"(/tmp/|/var/tmp/|\\temp\\|\\tmp\\)", content, re.IGNORECASE))
 
 
 def readable_files(paths: Iterable[Path], suffix: str | None = None) -> list[Path]:

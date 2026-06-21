@@ -6,22 +6,23 @@ import os
 import re
 from pathlib import Path
 
-from besecured.checks.common import command_exists, readable_files, run_command, unavailable_finding
+from besecured.checks.common import command_exists, file_mentions_temp, readable_files, run_checks, run_command, unavailable_finding
 from besecured.models import Finding
 
 
 def run_macos_checks() -> list[Finding]:
-    findings: list[Finding] = []
-    findings.extend(check_firewall())
-    findings.extend(check_updates())
-    findings.extend(check_disk_encryption())
-    findings.extend(check_users())
-    findings.extend(check_password_policy())
-    findings.extend(check_shared_folders())
-    findings.extend(check_startup_programs())
-    findings.extend(check_antimalware())
-    findings.extend(check_privilege_model())
-    return _macos_findings(findings)
+    checks = [
+        ("Firewall", check_firewall),
+        ("Updates", check_updates),
+        ("Disk Encryption", check_disk_encryption),
+        ("User Accounts", check_users),
+        ("Password Policy", check_password_policy),
+        ("Shared Folders", check_shared_folders),
+        ("Startup Programs", check_startup_programs),
+        ("Antivirus", check_antimalware),
+        ("Privilege Elevation", check_privilege_model),
+    ]
+    return _macos_findings(run_checks(checks))
 
 
 def _macos_findings(findings: list[Finding]) -> list[Finding]:
@@ -213,7 +214,7 @@ def check_startup_programs() -> list[Finding]:
         Path("/Library/LaunchDaemons"),
     ]
     files = readable_files(paths, suffix=".plist")
-    suspicious = [path for path in files if _file_mentions_temp(path)]
+    suspicious = [path for path in files if file_mentions_temp(path)]
     findings = [
         Finding(
             category,
@@ -307,7 +308,7 @@ def check_privilege_model() -> list[Finding]:
 def _extract_dates(text: str) -> list[dt.date]:
     dates: list[dt.date] = []
     today = dt.datetime.now().date()
-    for match in re.findall(r"\b(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\b", text):
+    for match in re.findall(r"\b(\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{1,2}-\d{1,2})\b", text):
         parsed = _parse_history_date(match, today)
         if parsed:
             dates.append(parsed)
@@ -455,11 +456,3 @@ def _dedupe(values: list[str]) -> list[str]:
         seen.add(key)
         deduped.append(clean)
     return deduped
-
-
-def _file_mentions_temp(path: Path) -> bool:
-    try:
-        content = path.read_text(errors="ignore")
-    except OSError:
-        return False
-    return bool(re.search(r"(/tmp/|/var/tmp/|\\temp\\|\\tmp\\)", content, re.IGNORECASE))
