@@ -40,15 +40,15 @@ Sur Windows, si nécessaire :
 py -m besecured.ui
 ```
 
-Le serveur ouvre une page locale dans le navigateur. Si rien ne s’ouvre, copier l’adresse affichée dans le terminal, par exemple `127.0.0.1:53921`.
+Le serveur ouvre l’interface dans une fenêtre dédiée, sans barre d’adresse ni onglets, quand Chrome, Edge ou un équivalent est présent. Sinon il bascule sur le navigateur par défaut. Pour forcer l’ouverture dans un onglet classique, ajouter `--browser`. Si rien ne s’ouvre, copier l’adresse affichée dans le terminal, par exemple `127.0.0.1:53921`.
 
 Dans l’interface :
 
-1. Cliquer sur `Start scan`.
+1. Cliquer sur `Lancer le scan`.
 2. Attendre la fin du scan.
 3. Lire le score et les catégories.
-4. Ouvrir `Issues` pour les détails.
-5. Ouvrir `Report` pour exporter un rapport HTML.
+4. Ouvrir `Points à corriger` pour les détails.
+5. Ouvrir `Rapport` pour exporter un rapport HTML.
 
 Pour arrêter l’interface, revenir au terminal et faire `Ctrl+C`.
 

@@ -11,3 +11,4 @@ output/playwright/
 venv/
 BeSecured_Report_*.html
 BeSecured_Report_*.json
+uv.lock
