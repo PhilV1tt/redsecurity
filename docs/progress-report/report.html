@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BeSecured P12 Progress Report</title>
+<style>
+  @page { size: A4; margin: 15mm 14mm 14mm; }
+  :root {
+    --ink: #15181d;
+    --muted: #5d6571;
+    --line: #d9dde3;
+    --line-soft: #e8ebef;
+    --accent: #2b5bb5;
+    --accent-soft: #eaf0fa;
+    --crit: #c0352e;
+    --warn: #a76600;
+    --ok: #2c7a44;
+    --info: #3a6ea5;
+    --skip: #6b7280;
+    --mono: "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 10.3px;
+    line-height: 1.5;
+  }
+  .page { page-break-before: always; position: relative; padding-bottom: 22px; min-height: 252mm; }
+  .page:first-child { page-break-before: avoid; }
+  h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
+  h2.sec { font-size: 15px; margin: 0 0 2px; }
+  h2.sec + .sub { color: var(--muted); margin: 0 0 14px; font-size: 10.3px; }
+  h3 { font-size: 11px; margin: 16px 0 7px; }
+  p { margin: 0 0 9px; }
+  .mono { font-family: var(--mono); }
+
+  .cover-top { border-bottom: 2px solid var(--ink); padding-bottom: 14px; margin-bottom: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand svg { width: 40px; height: 40px; }
+  .brand .name { font-size: 30px; font-weight: 700; line-height: 1; }
+  .brand .tag { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .doc-title { font-size: 17px; font-weight: 600; margin-top: 16px; }
+  .doc-meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+  table { width: 100%; border-collapse: collapse; break-inside: avoid; }
+  .meta-tbl td { padding: 8px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  .meta-tbl td.k { color: var(--muted); width: 38%; }
+  .meta-tbl td.v { font-weight: 500; }
+
+  .stack { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 9.6px; color: var(--ink); }
+  .pill.k { background: var(--accent-soft); border-color: #cad9f1; color: #1c4795; font-weight: 600; }
+
+  .lede { font-size: 11px; line-height: 1.6; }
+  .callout { background: #f5f7fa; border: 1px solid var(--line-soft); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 4px; break-inside: avoid; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; break-inside: avoid; }
+
+  table.data { font-size: 10px; }
+  table.data th, table.data td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  table.data th { color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); font-size: 9.4px; text-transform: uppercase; letter-spacing: 0.03em; }
+  table.data td.r, table.data th.r { text-align: right; font-family: var(--mono); }
+  table.data .nm { font-weight: 600; }
+
+  .tag { display: inline-block; font-family: var(--mono); font-size: 8.6px; font-weight: 700; padding: 1px 6px; border-radius: 3px; }
+  .tag.crit { background: var(--crit); color: #fff; }
+  .tag.warn { background: var(--warn); color: #fff; }
+  .tag.done { background: var(--ok); color: #fff; }
+  .tag.prog { background: var(--accent); color: #fff; }
+  .tag.todo { border: 1px solid var(--line); color: var(--muted); }
+
+  .stat-row { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--line); margin: 10px 0; break-inside: avoid; }
+  .stat { padding: 9px 10px; border-right: 1px solid var(--line); }
+  .stat:last-child { border-right: 0; }
+  .stat .n { font-family: var(--mono); font-size: 18px; font-weight: 700; line-height: 1; }
+  .stat .l { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+  .stat.c .n { color: var(--crit); } .stat.w .n { color: var(--warn); }
+  .stat.i .n { color: var(--info); } .stat.o .n { color: var(--ok); } .stat.s .n { color: var(--skip); }
+
+  figure.fig { margin: 10px 0 14px; break-inside: avoid; }
+  .shot { display: block; margin: 0; max-width: 100%; max-height: 84mm; width: auto; border: 1px solid var(--line); border-radius: 4px; }
+  .cap { color: var(--muted); font-size: 9px; margin: 5px 0 0; }
+
+  .formula { font-family: var(--mono); font-size: 10px; background: #f5f7fa; border: 1px solid var(--line-soft); padding: 8px 10px; border-radius: 4px; }
+
+  ul.tight { margin: 4px 0 10px; padding-left: 16px; }
+  ul.tight li { margin: 3px 0; }
+
+  .foot { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; color: var(--muted); font-size: 8.4px; border-top: 1px solid var(--line-soft); padding-top: 5px; }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1: COVER -->
+<section class="page">
+  <div class="cover-top">
+    <div class="brand">
+      <svg viewBox="0 0 32 32"><path d="M16 2.5 5.5 6.6v8.1c0 6.7 4.4 11.9 10.5 14.8 6.1-2.9 10.5-8.1 10.5-14.8V6.6L16 2.5Z" fill="#2b5bb5"/><path d="m11.2 15.8 3.3 3.4 6.3-6.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div>
+        <div class="name">BeSecured</div>
+        <div class="tag">P12 Personal Cybersecurity Risk Scanner</div>
+      </div>
+    </div>
+    <div class="doc-title">Project Progress Report</div>
+    <div class="doc-meta">Sprint Weeks 1-8 · June 2026</div>
+  </div>
+
+  <table class="meta-tbl">
+    <tr><td class="k">Project Manager</td><td class="v">Mohammedreda El Aroui</td></tr>
+    <tr><td class="k">Team Members</td><td class="v">Sidi Hamadi, Philemon Vittet, Abdelrahmn Dahy</td></tr>
+    <tr><td class="k">Report Date</td><td class="v">June 21, 2026</td></tr>
+    <tr><td class="k">Version</td><td class="v">v3.0</td></tr>
+    <tr><td class="k">Sprint</td><td class="v">Week 8 of 10</td></tr>
+  </table>
+
+  <h3>Tech stack</h3>
+  <div class="stack">
+    <span class="pill k">Python 3 (standard library only)</span>
+    <span class="pill">Zero third-party dependencies</span>
+    <span class="pill">Local HTTP UI server</span>
+    <span class="pill">Vanilla JavaScript + CSS</span>
+    <span class="pill">HTML + JSON report export</span>
+    <span class="pill">Windows · macOS · Linux</span>
+    <span class="pill">PowerShell (legacy MVP, archived)</span>
+  </div>
+
+  <h3>Where the project stands</h3>
+  <p class="lede">BeSecured is on schedule. The PowerShell prototype has been rebuilt into a cross-platform Python scanner with a local visual interface. Weeks 1 to 7 are complete: the scanner runs on Windows, macOS and Linux, computes an explainable 0 to 100 risk score, and reports findings by severity with plain-language fixes. The interface now opens in its own window and reads like a system diagnostic tool rather than a web page. Week 8 covers packaging and quality work. The whole tool runs locally, with no account, no backend and no data upload, and a test suite of 59 checks guards the scan contract and the privacy promise.</p>
+
+  <div class="callout">
+    <strong>What changed since the v2 report.</strong> The earlier report described an intended React / Tailwind / Chart.js stack. The team chose a lighter path that fits a privacy-first local tool: a Python package with no third-party dependencies and a hand-built local web UI. This report reflects what was actually built.
+  </div>
+
+  <div class="foot"><span>BeSecured · P12 Cybersecurity Risk Scanner</span><span>Confidential · Academic Project · Page 1</span></div>
+</section>
+
+<!-- PAGE 2: STATUS -->
+<section class="page">
+  <h2 class="sec">1. Project status overview</h2>
+  <p class="sub">As of June 21, 2026, Sprint Week 8</p>
+
+  <p>Weeks 1 to 7 are delivered. The scanner engine, the risk score, the local interface and the report export all work end to end. Week 8 is in progress and focuses on packaging and quality assurance.</p>
+
+  <h3>Sprint plan</h3>
+  <table class="data">
+    <thead><tr><th>Wk</th><th>Phase</th><th>Key objectives</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td class="r">1</td><td class="nm">Kick-off</td><td>Charter, repository, tooling</td><td><span class="tag done">Complete</span></td></tr>
+      <tr><td class="r">2</td><td class="nm">Planning</td><td>Backlog, risk register, scope</td><td><span class="tag done">Complete</span></td></tr>
+      <tr><td class="r">3</td><td class="nm">System design</td><td>Architecture, module breakdown, UI direction</td><td><span class="tag done">Complete</span></td></tr>
+      <tr><td class="r">4</td><td class="nm">Environment</td><td>Dev setup, package skeleton, tests harness</td><td><span class="tag done">Complete</span></td></tr>
+      <tr><td class="r">5</td><td class="nm">Scanner</td><td>Cross-platform checks, scoring engine, HTML/JSON export</td><td><span class="tag done">Complete</span></td></tr>
+      <tr><td class="r">6</td><td class="nm">Risk engine</td><td>Severity weights, category and finding impact, honest SKIP/INFO</td><td><span class="tag done">Complete</span></td></tr>
+      <tr><td class="r">7</td><td class="nm">Local UI</td><td>Native-style diagnostic panel, app-window launch, report view</td><td><span class="tag done">Complete</span></td></tr>
+      <tr><td class="r">8</td><td class="nm">Packaging & QA</td><td>Double-click packaging, test pass, accessibility, privacy audit</td><td><span class="tag prog">In progress</span></td></tr>
+      <tr><td class="r">9</td><td class="nm">AI (optional)</td><td>Plain-language explanations for top findings</td><td><span class="tag todo">To do</span></td></tr>
+      <tr><td class="r">10</td><td class="nm">Delivery</td><td>Final demo, docs, code freeze, handoff</td><td><span class="tag todo">To do</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Sprint velocity</h3>
+  <table class="data">
+    <thead><tr><th>Sprint</th><th>Planned</th><th>Delivered</th><th class="r">Velocity</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">W1-W4</td><td>Charter, planning, design, environment</td><td>All foundations in place</td><td class="r">100%</td></tr>
+      <tr><td class="nm">W5</td><td>Cross-platform scanner module</td><td>Python scanner (Win/Lin/Mac) + structured findings</td><td class="r">100%</td></tr>
+      <tr><td class="nm">W6</td><td>Risk engine and recommendations</td><td>Explainable score, category and finding impact</td><td class="r">100%</td></tr>
+      <tr><td class="nm">W7</td><td>Local interface and report export</td><td>Native-style UI + HTML/JSON export</td><td class="r">100%</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Done this sprint window</h3>
+  <ul class="tight">
+    <li>Rebuilt the scanner from the PowerShell MVP into a modular Python package covering Windows, macOS and Linux.</li>
+    <li>Made the score explainable: severity weights, per-category impact, per-finding impact, and a printed formula.</li>
+    <li>Redesigned the local interface to feel like a system diagnostic tool, and made it open in its own window.</li>
+    <li>Added HTML and JSON report export, plus a guard that refuses to write reports to cloud-synced or remote paths.</li>
+    <li>Grew the test suite to 59 checks covering parsers, scoring, export, the UI contract and the local scan endpoint.</li>
+  </ul>
+
+  <div class="foot"><span>BeSecured · P12 Cybersecurity Risk Scanner</span><span>Confidential · Academic Project · Page 2</span></div>
+</section>
+
+<!-- PAGE 3: LIVE SCAN -->
+<section class="page">
+  <h2 class="sec">2. Live scan results</h2>
+  <p class="sub">Real scan run on macOS 26.5 (Apple Silicon), June 21, 2026</p>
+
+  <p>The screenshots below come from a real scan on a macOS machine using the BeSecured interface. The tool produced a score of 92 out of 100, grade A, with two warnings to review and no critical finding.</p>
+
+  <div class="stat-row">
+    <div class="stat c"><span class="n">0</span><span class="l">Critical</span></div>
+    <div class="stat w"><span class="n">2</span><span class="l">Warning</span></div>
+    <div class="stat i"><span class="n">5</span><span class="l">Info</span></div>
+    <div class="stat o"><span class="n">8</span><span class="l">OK</span></div>
+    <div class="stat s"><span class="n">1</span><span class="l">Skipped</span></div>
+  </div>
+
+  <figure class="fig">
+    <img class="shot" src="assets/ui-summary.png" alt="BeSecured overview screen">
+    <figcaption class="cap">Fig 1. Overview. Score 92/100 (grade A), status counts, and the printed score formula. The machine and scope are shown on the left rail.</figcaption>
+  </figure>
+
+  <figure class="fig">
+    <img class="shot" src="assets/ui-findings.png" alt="BeSecured findings screen">
+    <figcaption class="cap">Fig 2. Points to fix. Findings ranked by severity, each with what was found, why it matters, and concrete fix steps.</figcaption>
+  </figure>
+
+  <div class="foot"><span>BeSecured · P12 Cybersecurity Risk Scanner</span><span>Confidential · Academic Project · Page 3</span></div>
+</section>
+
+<!-- PAGE 4: ARCHITECTURE -->
+<section class="page">
+  <h2 class="sec">3. Architecture and what was built</h2>
+  <p class="sub">Cross-platform Python scanner with a local web interface</p>
+
+  <p>A single entry point runs the common checks, then dispatches to the checks for the current operating system, aggregates the findings, and computes the score. The interface is served by a small local Python server and talks to the scanner through one local endpoint.</p>
+
+  <div class="formula">Local UI or CLI &rarr; Python scanner &rarr; OS-specific checks &rarr; risk scoring &rarr; HTML or JSON report</div>
+
+  <h3>Module map</h3>
+  <table class="data">
+    <thead><tr><th>Module</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td class="nm mono">scanner.py</td><td>Entry point. Runs common checks, dispatches to the OS module, aggregates findings, builds the result.</td></tr>
+      <tr><td class="nm mono">checks/common.py</td><td>System info, privilege detection, listening ports, cross-platform helpers.</td></tr>
+      <tr><td class="nm mono">checks/windows.py</td><td>Firewall, Defender, updates, users, password policy, shares, startup, UAC, BitLocker.</td></tr>
+      <tr><td class="nm mono">checks/macos.py</td><td>Firewall, FileVault, Gatekeeper, SIP, XProtect, users, sharing, launch items.</td></tr>
+      <tr><td class="nm mono">checks/linux.py</td><td>Firewall, updates, LUKS, users, password rules, shares, startup, antivirus.</td></tr>
+      <tr><td class="nm mono">models.py</td><td>Finding and ScanResult data contracts, with a stable JSON schema.</td></tr>
+      <tr><td class="nm mono">scoring.py</td><td>Score, grade, per-category and per-finding impact, calculation steps.</td></tr>
+      <tr><td class="nm mono">report.py</td><td>HTML and JSON report rendering.</td></tr>
+      <tr><td class="nm mono">ui/</td><td>Local server and browser interface. Opens in a dedicated app window.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>What gets checked</h3>
+  <table class="data">
+    <thead><tr><th>Category</th><th>What it reads</th><th>Platforms</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Open ports</td><td>Listening TCP ports and risky services (RDP, SMB, SSH, VNC, databases)</td><td>All</td></tr>
+      <tr><td class="nm">Firewall</td><td>Local firewall state and profiles</td><td>All</td></tr>
+      <tr><td class="nm">Updates</td><td>Freshness of system and package updates</td><td>All</td></tr>
+      <tr><td class="nm">Accounts</td><td>Admin count, guest access, accounts without a password</td><td>All</td></tr>
+      <tr><td class="nm">Password policy</td><td>Minimum length and expiry rules when readable</td><td>Win / Linux</td></tr>
+      <tr><td class="nm">Shared folders</td><td>Non-default SMB, NFS or OS shares</td><td>All</td></tr>
+      <tr><td class="nm">Startup programs</td><td>Startup entries, with suspicious temporary paths flagged</td><td>All</td></tr>
+      <tr><td class="nm">Protection</td><td>Antivirus or native protection and signature freshness</td><td>All</td></tr>
+      <tr><td class="nm">Disk encryption</td><td>BitLocker, FileVault or LUKS state</td><td>All</td></tr>
+      <tr><td class="nm">Hardening</td><td>UAC on Windows, Gatekeeper and SIP on macOS</td><td>Win / macOS</td></tr>
+    </tbody>
+  </table>
+
+  <div class="foot"><span>BeSecured · P12 Cybersecurity Risk Scanner</span><span>Confidential · Academic Project · Page 4</span></div>
+</section>
+
+<!-- PAGE 5: SCORING, PRIVACY, QUALITY -->
+<section class="page">
+  <h2 class="sec">4. Scoring, privacy and quality</h2>
+  <p class="sub">An explainable score, a local-first design, and an automated test suite</p>
+
+  <h3>Scoring model</h3>
+  <div class="grid2">
+    <table class="data">
+      <thead><tr><th>Status</th><th class="r">Points lost</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag done">OK</span></td><td class="r">0</td></tr>
+        <tr><td><span class="tag warn">WARN</span></td><td class="r">2</td></tr>
+        <tr><td><span class="tag crit">CRIT</span></td><td class="r">5</td></tr>
+        <tr><td>INFO</td><td class="r">ignored</td></tr>
+        <tr><td>SKIP</td><td class="r">ignored</td></tr>
+      </tbody>
+    </table>
+    <div>
+      <p>Only OK, WARN and CRIT change the score. INFO and SKIP are shown for transparency but never move the number, so an unavailable check is never counted as a pass.</p>
+      <div class="formula">score = 100 - round(lost / max &times; 100)</div>
+      <p style="margin-top:8px">Grades: A (90-100), B (75-89), C (60-74), D (40-59), F (0-39).</p>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:6px">
+    <div>
+      <h3>Privacy guarantees</h3>
+      <ul class="tight">
+        <li>No account, no remote backend, no cloud API.</li>
+        <li>No upload of files, credentials or system details.</li>
+        <li>The UI server binds to 127.0.0.1 and exposes only a local scan endpoint.</li>
+        <li>Reports are written to a local app-data folder.</li>
+        <li>The CLI refuses to write a report to a cloud-synced or remote path.</li>
+        <li>A test asserts the interface assets contain no remote URLs.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Test suite (59 checks)</h3>
+      <ul class="tight">
+        <li>Windows, macOS and Linux check parsers.</li>
+        <li>Network and port parsing.</li>
+        <li>Scoring, grades and calculation steps.</li>
+        <li>HTML and JSON report export.</li>
+        <li>UI JSON contract and finding shape.</li>
+        <li>Local <span class="mono">/api/scan</span> endpoint.</li>
+        <li>No remote-reference guard over the sensitive sources.</li>
+      </ul>
+    </div>
+  </div>
+
+  <figure class="fig">
+    <img class="shot" src="assets/ui-categories.png" alt="BeSecured categories screen">
+    <figcaption class="cap">Fig 3. Score by category, with points lost over the per-category maximum. Categories with no applicable check are marked as not scored.</figcaption>
+  </figure>
+
+  <div class="foot"><span>BeSecured · P12 Cybersecurity Risk Scanner</span><span>Confidential · Academic Project · Page 5</span></div>
+</section>
+
+<!-- PAGE 6: RISKS, NEXT -->
+<section class="page">
+  <h2 class="sec">5. Risk register and next steps</h2>
+  <p class="sub">Open risks and the plan for Weeks 8 to 10</p>
+
+  <h3>Risk register</h3>
+  <table class="data">
+    <thead><tr><th>ID</th><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">R-01</td><td>Some system checks need administrator rights</td><td>High</td><td>Non-admin mode is detected; checks fall back to SKIP with an explanation instead of failing.</td></tr>
+      <tr><td class="nm">R-02</td><td>False positives could mislead non-technical users</td><td>Medium</td><td>Unavailable checks are SKIP, not pass; the UI contract and parser tests guard the result shape.</td></tr>
+      <tr><td class="nm">R-03</td><td>Performance on machines with many connections</td><td>Medium</td><td>Port scope is bounded; checks read local state only, with no remote scanning.</td></tr>
+      <tr><td class="nm">R-04</td><td>Sensitive data must not leave the device</td><td>Critical</td><td>Local-only design, 127.0.0.1 binding, remote-path write guard, and a no-remote-reference test.</td></tr>
+      <tr><td class="nm">R-05</td><td>Detection of third-party protection is limited</td><td>Medium</td><td>Native protection is detected first; gaps are reported honestly rather than guessed.</td></tr>
+      <tr><td class="nm">R-06</td><td>Optional AI work could slip the timeline</td><td>Medium</td><td>AI explanations stay optional and will be dropped if Week 8 to 9 runs tight.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Next steps</h3>
+  <table class="data">
+    <thead><tr><th>Week</th><th>Milestone</th><th>Success criterion</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">W8</td><td>Packaging and QA</td><td>Double-click launch on Windows and macOS; full test pass; privacy audit signed off.</td></tr>
+      <tr><td class="nm">W9</td><td>AI explanations (optional)</td><td>Plain-language summary for the top findings, generated locally where feasible.</td></tr>
+      <tr><td class="nm">W10</td><td>Final delivery</td><td>Demo, documentation, code freeze and handoff complete.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>MoSCoW priorities for the remaining sprints</h3>
+  <table class="data">
+    <thead><tr><th>Priority</th><th>Items</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Must</td><td>One-click scan, 0-100 score, findings by severity, privacy-first (no data stored or sent).</td></tr>
+      <tr><td class="nm">Should</td><td>Report export (done as HTML and JSON), double-click packaging, accessibility pass.</td></tr>
+      <tr><td class="nm">Could</td><td>Local scan history kept only on the machine, finer scoring profiles.</td></tr>
+      <tr><td class="nm">Won't</td><td>Aggressive or remote scanning, exploitation, automatic remediation, continuous monitoring, cloud storage.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="foot"><span>BeSecured · P12 Cybersecurity Risk Scanner</span><span>Confidential · Academic Project · Page 6</span></div>
+</section>
+
+</body>
+</html>
