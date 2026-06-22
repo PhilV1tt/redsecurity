@@ -3,7 +3,12 @@ name = "besecured"
 version = "0.1.0"
 description = "Local multi-OS cybersecurity awareness scanner"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "pywebview>=5",
+]
 
 [project.scripts]
 besecured = "besecured.cli:main"
+
+[project.gui-scripts]
+besecured-app = "besecured.app:main"

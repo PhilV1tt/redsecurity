@@ -39,6 +39,7 @@ const state = {
   error: "",
   reportFormat: "html",
   exported: false,
+  exportPath: "",
   checksDone: 0,
   pending: null
 };
@@ -381,7 +382,7 @@ function renderReport() {
 
           <div class="bs-export-row">
             <button type="button" class="bs-cta" data-action="export"><span>Export the report</span></button>
-            ${state.exported ? `<span class="bs-exported"><span class="chk">✓</span>Saved to the local folder</span>` : ""}
+            ${state.exported ? `<span class="bs-exported"><span class="chk">✓</span>${state.exportPath ? "Saved to " + escapeHtml(state.exportPath) : "Saved to the local folder"}</span>` : ""}
           </div>
         </div>
 
@@ -559,6 +560,9 @@ async function startScan() {
 }
 
 async function runLocalScan() {
+  if (window.pywebview?.api?.run_scan) {
+    return window.pywebview.api.run_scan();
+  }
   const response = await fetch("/api/scan", {
     method: "POST",
     headers: { Accept: "application/json" },
@@ -637,8 +641,15 @@ function sortFindings(findings) {
 }
 
 /* ---------- Export ---------- */
-function exportReport() {
+async function exportReport() {
   const data = state.results;
+  if (window.pywebview?.api?.export_report) {
+    const saved = await window.pywebview.api.export_report(state.reportFormat);
+    state.exportPath = saved && saved.path ? saved.path : "";
+    state.exported = true;
+    render();
+    return;
+  }
   let blob;
   let filename;
   if (state.reportFormat === "json") {
