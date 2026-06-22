@@ -21,7 +21,7 @@ Objectifs réalisés :
 - exporter un rapport HTML et JSON
 - garder les données sur la machine
 
-Objectifs hors scope :
+Objectifs hors périmètre :
 
 - pentest
 - exploitation
@@ -36,10 +36,10 @@ Objectifs hors scope :
 Le pipeline actuel est :
 
 ```text
-UI locale ou CLI
+Application native, UI web de dev ou CLI
   -> scanner Python
   -> checks communs et spécifiques OS
-  -> score engine
+  -> calcul du score
   -> rapport HTML ou JSON
 ```
 
@@ -55,7 +55,8 @@ Modules principaux :
 | `besecured/models.py` | structure des findings et du résultat de scan |
 | `besecured/scoring.py` | score global, score par catégorie, détails de calcul |
 | `besecured/report.py` | génération HTML et JSON |
-| `besecured/ui/` | serveur local et interface navigateur |
+| `besecured/app.py` | application native pywebview, pont vers le moteur |
+| `besecured/ui/` | serveur local de développement et interface |
 
 ## Implémentation
 
@@ -101,9 +102,9 @@ Le rapport affiche :
 - impact par catégorie
 - findings qui ont le plus pesé dans le score
 
-Cette formule est volontairement simple. Elle est plus défendable pour un projet d’awareness qu’un scoring opaque.
+Cette formule est volontairement simple. Elle est plus défendable pour un projet de sensibilisation qu’un calcul de score opaque.
 
-## Privacy
+## Confidentialité
 
 BeSecured reste local :
 
@@ -113,7 +114,7 @@ BeSecured reste local :
 - pas de cloud
 - pas de dépendance à une API externe
 
-La CLI écrit dans un dossier local d’application. L’UI écoute sur `127.0.0.1` et appelle le scanner Python localement.
+La CLI écrit dans un dossier local d’application. En mode natif, l’interface parle au moteur par un pont interne, sans port ouvert. En mode web de développement, l’interface écoute sur `127.0.0.1` et appelle le scanner Python localement.
 
 ## Tests
 
@@ -134,14 +135,15 @@ Les tests couvrent :
 - serveur local `/api/scan`
 - absence de références réseau distantes dans les sources sensibles
 
-Dernière validation locale : 59 tests OK.
+Dernière validation locale : 102 tests OK.
 
 ## État final
 
 Le rendu final contient :
 
 - moteur Python multi OS
-- interface locale navigateur
+- application native pywebview et interface web de développement
+- packaging PyInstaller, `.app` macOS construit en local, `.exe` Windows à construire sur une machine Windows
 - rapport HTML exportable
 - export JSON
 - README complet
@@ -161,13 +163,13 @@ Limites principales :
 - la détection antivirus est forcément limitée selon OS et environnement
 - aucun scan distant n’est lancé
 - aucune correction automatique n’est appliquée
-- pas de packaging double clic final pour l’instant
+- les binaires packagés ne sont pas signés, l’OS affiche un avertissement au premier lancement
 
 ## Suite possible
 
 Améliorations utiles :
 
-- packaging Windows et macOS
+- build de l’exécutable Windows sur une machine Windows et signature des binaires
 - meilleure détection des protections tierces
 - historique local des scans, stocké uniquement sur la machine
 - profils de scoring plus fins selon usage personnel ou petite organisation

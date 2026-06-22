@@ -4,7 +4,7 @@ BeSecured est un scanner local de posture cybersécurité pour le projet P12 Per
 
 L’objectif est simple : aider un utilisateur non technique à comprendre les faiblesses courantes de sa machine, avec un score lisible, des constats classés par gravité et des conseils de correction concrets.
 
-BeSecured est un outil d’awareness. Ce n’est pas un outil de pentest, pas un antivirus, pas un système de monitoring continu et pas un service cloud.
+BeSecured est un outil de sensibilisation. Ce n’est pas un outil de pentest, pas un antivirus, pas un système de surveillance continue et pas un service cloud.
 
 ## Installation
 
@@ -18,7 +18,7 @@ Sur Windows, installer Python depuis `www.python.org/downloads`, puis cocher `Ad
 
 Cloner ou dézipper le projet, puis se placer à la racine du repo.
 
-Installation optionnelle en mode editable :
+Installation optionnelle en mode modifiable :
 
 ```bash
 python -m pip install -e .
@@ -26,7 +26,30 @@ python -m pip install -e .
 
 Si la commande `python` n’existe pas sur macOS ou Linux, utiliser `python3`.
 
-## Usage UI locale
+## Usage application native
+
+C’est la façon recommandée de lancer BeSecured. L’interface s’ouvre dans une vraie fenêtre d’application, sans navigateur ni barre d’adresse, via le webview natif de l’OS. WKWebView sur macOS, WebView2 sur Windows.
+
+Installer les dépendances puis lancer :
+
+```bash
+python -m pip install -e .
+python -m besecured.app
+```
+
+Dans ce mode, le scan et l’export passent par un pont interne entre l’interface et le moteur Python. Aucun serveur ni port local n’est ouvert.
+
+L’export écrit le rapport dans un dossier local d’application et l’interface affiche le chemin du fichier :
+
+- macOS : `~/Library/Application Support/BeSecured/Reports/`
+- Windows : `%LOCALAPPDATA%\BeSecured\Reports\`
+- Linux : `~/.local/state/besecured/reports/`
+
+Sur Linux, le webview natif demande les paquets système PyGObject et WebKit2GTK.
+
+## Usage interface web (mode développement)
+
+Ce mode sert au développement et de solution de repli. Il expose l’UI par un petit serveur local sur `127.0.0.1`, sans pywebview.
 
 Lancer l’interface locale :
 
@@ -133,9 +156,9 @@ Grades :
 | 40 à 59 | D |
 | 0 à 39 | F |
 
-## Privacy
+## Confidentialité
 
-BeSecured est local first :
+BeSecured fonctionne tout en local :
 
 - pas de compte
 - pas de backend externe
@@ -143,7 +166,7 @@ BeSecured est local first :
 - pas d’upload de fichiers, credentials ou détails système
 - rapport HTML et JSON générés localement
 
-Le serveur UI écoute sur `127.0.0.1`. Il sert l’interface et expose seulement un endpoint local de scan.
+En mode natif, l’interface parle au moteur par un pont interne, sans serveur ni port ouvert. En mode web de développement, le serveur écoute sur `127.0.0.1` et expose seulement un point d’accès local de scan.
 
 ## Limites
 
@@ -156,7 +179,7 @@ Limites assumées :
 - pas de bruteforce
 - pas d’exploitation
 - pas de remédiation automatique
-- pas de monitoring continu
+- pas de surveillance continue
 - pas de garantie que tous les antivirus ou outils EDR soient détectés
 - certains checks dépendent des commandes disponibles et des droits utilisateur
 
@@ -184,9 +207,24 @@ Structure principale :
 | `besecured/models.py` | objets `Finding` et `ScanResult` |
 | `besecured/scoring.py` | score, grade, détails de calcul |
 | `besecured/report.py` | export HTML et JSON |
-| `besecured/ui/` | serveur local et interface navigateur |
+| `besecured/app.py` | application native pywebview, pont vers le moteur |
+| `besecured/ui/` | serveur local de développement et interface |
+| `packaging/` | spec PyInstaller et icônes de l’application |
 | `tests/` | tests unitaires et contrat UI |
 | `legacy/` | documents école et anciens scripts PowerShell |
+
+## Construction d’un exécutable
+
+Pour distribuer BeSecured sans installation de Python, on construit un binaire double-cliquable avec PyInstaller. Le spec est versionné dans `packaging/BeSecured.spec`.
+
+```bash
+python -m pip install pyinstaller
+pyinstaller packaging/BeSecured.spec
+```
+
+Sortie : `dist/BeSecured.app` sur macOS, `dist/BeSecured/BeSecured.exe` sur Windows. PyInstaller ne fait pas de compilation croisée, le `.app` se construit sur macOS et le `.exe` sur Windows.
+
+Les binaires ne sont pas signés. Au premier lancement, macOS et Windows affichent un avertissement. Sur macOS, clic droit puis Ouvrir. Sur Windows, Informations complémentaires puis Exécuter quand même.
 
 ## Tests
 
@@ -215,7 +253,8 @@ Ils restent utiles pour comprendre l’historique du projet, mais la base actuel
 
 Livrables prêts dans le repo :
 
-- code Python et UI locale
+- code Python, application native pywebview et UI web de développement
+- packaging PyInstaller dans `packaging/` et conception dans `docs/conception-application-native.md`
 - README complet
 - rapport projet dans `docs/rapport-projet.md`
 - trame de présentation dans `docs/presentation.md`

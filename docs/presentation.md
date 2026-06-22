@@ -1,30 +1,30 @@
 # Présentation BeSecured
 
-## Slide 1. BeSecured
+## Diapositive 1. BeSecured
 
 Personal Cybersecurity Risk Scanner.
 
 But : donner à un utilisateur non technique une lecture claire de la posture sécurité locale.
 
-## Slide 2. Problème
+## Diapositive 2. Problème
 
 - les réglages sécurité sont dispersés
 - les outils pros sont trop techniques
 - un utilisateur ne sait pas toujours quoi corriger en premier
 - un score simple aide à prioriser
 
-## Slide 3. Positionnement
+## Diapositive 3. Positionnement
 
-BeSecured est un outil local d’awareness.
+BeSecured est un outil local d’sensibilisation.
 
 Ce n’est pas :
 
 - un pentest
 - un antivirus
-- un outil de monitoring
+- un outil de surveillance
 - un service cloud
 
-## Slide 4. Workflow
+## Diapositive 4. Déroulé
 
 ```text
 Lancer BeSecured
@@ -35,19 +35,19 @@ Lancer BeSecured
   -> export HTML
 ```
 
-## Slide 5. Architecture
+## Diapositive 5. Architecture
 
 ```text
-UI locale / CLI
+Application native / UI web / CLI
   -> scanner Python
   -> checks OS
-  -> score engine
-  -> report HTML / JSON
+  -> calcul du score
+  -> rapport HTML / JSON
 ```
 
 Windows, macOS et Linux ont chacun des checks adaptés.
 
-## Slide 6. Checks
+## Diapositive 6. Checks
 
 Exemples :
 
@@ -61,7 +61,7 @@ Exemples :
 - updates
 - chiffrement disque
 
-## Slide 7. Scoring
+## Diapositive 7. Scoring
 
 Statuts :
 
@@ -76,7 +76,7 @@ Formule :
 100 - round(lost_points / max_points * 100)
 ```
 
-## Slide 8. Privacy
+## Diapositive 8. Confidentialité
 
 - tout tourne sur la machine
 - pas de compte
@@ -84,16 +84,16 @@ Formule :
 - pas d’upload
 - rapports générés localement
 
-## Slide 9. Démo
+## Diapositive 9. Démo
 
-1. Lancer `python -m besecured.ui`.
+1. Lancer `python -m besecured.app`.
 2. Cliquer sur `Start scan`.
 3. Lire le score.
 4. Ouvrir `Issues`.
 5. Exporter le rapport HTML.
 
-## Slide 10. Conclusion
+## Diapositive 10. Conclusion
 
 BeSecured donne une lecture claire du risque local.
 
-Le projet reste volontairement limité : awareness, priorisation, remédiation manuelle.
+Le projet reste volontairement limité : sensibilisation, priorisation, remédiation manuelle.

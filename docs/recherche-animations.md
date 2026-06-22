@@ -1,6 +1,6 @@
 # Animations de l'interface BeSecured: note de recherche
 
-Document destiné à briefer Claude Design, en complément de la note sur l'interface et les couleurs. Objectif: fonder les choix de mouvement sur des preuves, pour un outil de diagnostic de sécurité local, calme, utilisé par des non-techniciens.
+Document de conception du mouvement, en complément de la note sur l'interface et les couleurs. Objectif: fonder les choix de mouvement sur des preuves, pour un outil de diagnostic de sécurité local, calme, utilisé par des non-techniciens.
 
 Sources principales: littérature HCI sur l'animation et le temps de réponse, standards W3C, guides Material et Apple, recherche sur la performance perçue et le mal des transports visuel, preprints arXiv. Niveau de confiance global: élevé sur le temps de réponse et l'accessibilité, modéré sur les durées exactes (conventions convergentes plus qu'une vérité unique).
 
@@ -87,7 +87,7 @@ Accessibilité: continuer à respecter `prefers-reduced-motion` en réduisant à
 
 Règle d'or: si une animation n'aide pas à comprendre un changement, l'enlever.
 
-## 7. Brief animations pour Claude Design
+## 7. Synthèse des contraintes d'animation
 
 ```
 Pour BeSecured, un utilitaire de diagnostic de sécurité local et calme, le mouvement

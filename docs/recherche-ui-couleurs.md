@@ -1,6 +1,6 @@
 # Interface et couleurs de BeSecured: note de recherche
 
-Document destiné à briefer Claude Design. Objectif: fonder les choix d'interface et de couleurs sur des preuves, pas sur des goûts, pour un outil de diagnostic de sécurité local, utilisé par des personnes non techniques, en français, en mode clair.
+Document de conception de l'interface. Objectif: fonder les choix d'interface et de couleurs sur des preuves, pas sur des goûts, pour un outil de diagnostic de sécurité local, utilisé par des personnes non techniques, en français, en mode clair.
 
 Sources principales: standards W3C, études HCI, science de la couleur, littérature « usable security », et preprints arXiv récents. Niveau de confiance global: élevé sur l'accessibilité et la sécurité utilisable, faible sur la psychologie des couleurs (voir section 3).
 
@@ -12,7 +12,7 @@ Quatre choses sont bien établies. Une interface se juge en une fraction de seco
 
 Une chose est fragile: la psychologie des couleurs. « Rouge égale danger, bleu égale confiance » correspond à des effets réels mais faibles, dépendants du contexte et de la culture. Il ne faut pas attendre d'une teinte qu'elle crée de la confiance.
 
-La conséquence pour BeSecured: garder une palette sobre et accessible, utiliser la couleur pour sa fonction conventionnelle apprise (niveaux de gravité, comme un feu tricolore) et non pour induire une émotion, et donner à Claude Design des contraintes précises plutôt qu'une consigne ouverte.
+La conséquence pour BeSecured: garder une palette sobre et accessible, utiliser la couleur pour sa fonction conventionnelle apprise (niveaux de gravité, comme un feu tricolore) et non pour induire une émotion, et partir de contraintes précises plutôt que d'une consigne ouverte.
 
 ## 1. Première impression et confiance
 
@@ -62,7 +62,7 @@ Conséquence pratique: ne pas demander à une couleur de « créer » de la conf
 
 **Signes de cette moyenne.** Petit intitulé en majuscules au-dessus des titres, dégradés, grand titre marketing, pastilles et badges colorés partout, tableaux zébrés, phrases motivantes, emoji. C'est exactement ce qui fait « produit IA » et ce qu'il faut éviter ici.
 
-**Comment l'éviter [directive].** Ancrer la conception dans le sujet réel: un utilitaire de diagnostic système, pas un produit SaaS. Prendre comme référence de vrais logiciels système (les Réglages de macOS, un antivirus comme Malwarebytes) plutôt qu'un tableau de bord générique. Restreindre: une seule couleur d'accent, peu de couleurs, typographie système, pas de décor. Donner à Claude Design des contraintes précises et un parti pris, ce que la littérature appelle une friction productive (Shin et al., 2026): sans cela, il régresse vers la moyenne. Et assumer le pari de la sobriété crédible, un outil « ennuyeux dans le bon sens » qui passe pour un vrai logiciel.
+**Comment l'éviter [directive].** Ancrer la conception dans le sujet réel: un utilitaire de diagnostic système, pas un produit SaaS. Prendre comme référence de vrais logiciels système (les Réglages de macOS, un antivirus comme Malwarebytes) plutôt qu'un tableau de bord générique. Restreindre: une seule couleur d'accent, peu de couleurs, typographie système, pas de décor. Partir de contraintes précises et d'un parti pris, ce que la littérature appelle une friction productive (Shin et al., 2026): sans cela, la conception régresse vers la moyenne. Et assumer le pari de la sobriété crédible, un outil « ennuyeux dans le bon sens » qui passe pour un vrai logiciel.
 
 ## 7. Directives concrètes pour BeSecured
 
@@ -86,7 +86,7 @@ Le reste:
 - Mouvement: discret, et respecter `prefers-reduced-motion`.
 - Accessibilité: viser AA partout, ne jamais coder par la seule couleur, tester en simulation daltonien.
 
-## 8. Brief prêt à coller pour Claude Design
+## 8. Synthèse des contraintes de conception
 
 ```
 Je conçois l'interface de BeSecured, un outil de diagnostic de sécurité 100% local
