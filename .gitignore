@@ -12,4 +12,6 @@ venv/
 BeSecured_Report_*.html
 BeSecured_Report_*.json
 uv.lock
+build/
+dist/
 docs/progress-report/latex/
